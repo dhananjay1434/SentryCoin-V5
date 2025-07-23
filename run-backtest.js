@@ -64,19 +64,21 @@ async function runQuickBacktest() {
   let firstAlertStep = null;
   
   // Override alert method
+  let currentStep = 0;
   predictor.triggerFlashCrashAlert = async (alertData) => {
     alertsTriggered++;
     if (!firstAlertStep) {
-      firstAlertStep = step;
+      firstAlertStep = currentStep;
     }
-    console.log(`🚨 ALERT at step ${step}: Ratio ${alertData.askToBidRatio.toFixed(2)}x`);
+    console.log(`🚨 ALERT at step ${currentStep}: Ratio ${alertData.askToBidRatio.toFixed(2)}x`);
     return true;
   };
   
   // Simulate crash scenario
   console.log('📊 Simulating flash crash scenario...\n');
-  
+
   for (let step = 0; step < 20; step++) {
+    currentStep = step;
     const progress = step / 19;
     
     // Clear order book
