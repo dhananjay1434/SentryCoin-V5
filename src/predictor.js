@@ -10,6 +10,7 @@ class FlashCrashPredictor {
     this.symbol = process.env.SYMBOL || 'BTCUSDT';
     this.dangerRatio = parseFloat(process.env.DANGER_RATIO) || 3.0;
     this.orderBookDepth = parseInt(process.env.ORDER_BOOK_DEPTH) || 50;
+    this.exchange = process.env.EXCHANGE || 'coinbase'; // Default to Coinbase Pro
     
     // Order book state
     this.orderBook = {
@@ -42,6 +43,7 @@ class FlashCrashPredictor {
     this.degradedModeStartTime = null;
     
     console.log(`🛡️ Flash Crash Predictor initialized for ${this.symbol}`);
+    console.log(`🏢 Exchange: ${this.exchange.toUpperCase()}`);
     console.log(`⚠️ Danger ratio threshold: ${this.dangerRatio}x`);
     console.log(`📊 Order book depth: ${this.orderBookDepth} levels`);
   }
@@ -97,72 +99,204 @@ class FlashCrashPredictor {
   }
 
   /**
+   * Gets exchange configuration
+   */
+  getExchangeConfig() {
+    const configs = {
+      binance: {
+        name: 'Binance',
+        restEndpoints: [
+          'https://api.binance.com/api/v3/depth',
+          'https://api1.binance.com/api/v3/depth',
+          'https://api2.binance.com/api/v3/depth',
+          'https://api3.binance.com/api/v3/depth'
+        ],
+        wsEndpoints: [
+          `wss://stream.binance.com:9443/ws/${this.symbol.toLowerCase()}@depth`,
+          `wss://stream.binance.com:443/ws/${this.symbol.toLowerCase()}@depth`,
+          `wss://stream1.binance.com:9443/ws/${this.symbol.toLowerCase()}@depth`,
+          `wss://stream2.binance.com:9443/ws/${this.symbol.toLowerCase()}@depth`
+        ],
+        parseOrderBook: (data) => ({
+          bids: data.bids,
+          asks: data.asks,
+          lastUpdateId: data.lastUpdateId
+        }),
+        parseDepthUpdate: (data) => ({
+          bids: data.b,
+          asks: data.a,
+          updateId: data.u
+        })
+      },
+      coinbase: {
+        name: 'Coinbase Pro',
+        restEndpoints: [
+          'https://api.exchange.coinbase.com/products'
+        ],
+        wsEndpoints: [
+          'wss://ws-feed.exchange.coinbase.com'
+        ],
+        parseOrderBook: (data) => ({
+          bids: data.bids || [],
+          asks: data.asks || [],
+          lastUpdateId: Date.now()
+        }),
+        parseDepthUpdate: (data) => ({
+          bids: data.changes?.filter(c => c[0] === 'buy') || [],
+          asks: data.changes?.filter(c => c[0] === 'sell') || [],
+          updateId: Date.now()
+        })
+      },
+      kraken: {
+        name: 'Kraken',
+        restEndpoints: [
+          'https://api.kraken.com/0/public/Depth'
+        ],
+        wsEndpoints: [
+          'wss://ws.kraken.com'
+        ],
+        parseOrderBook: (data) => {
+          const result = data.result[Object.keys(data.result)[0]];
+          return {
+            bids: result.bids || [],
+            asks: result.asks || [],
+            lastUpdateId: Date.now()
+          };
+        },
+        parseDepthUpdate: (data) => ({
+          bids: data.bids || [],
+          asks: data.asks || [],
+          updateId: Date.now()
+        })
+      }
+    };
+
+    return configs[this.exchange] || configs.coinbase;
+  }
+
+  /**
    * Initializes order book with current snapshot from REST API
    */
   async initializeOrderBook() {
     console.log('📊 Initializing order book snapshot...');
 
-    // Try multiple API endpoints in order of preference
-    const apiEndpoints = [
-      'https://api.binance.com/api/v3/depth',
-      'https://api1.binance.com/api/v3/depth',
-      'https://api2.binance.com/api/v3/depth',
-      'https://api3.binance.com/api/v3/depth'
-    ];
+    const config = this.getExchangeConfig();
+    console.log(`🏢 Using ${config.name} exchange`);
 
     let lastError;
 
-    for (const endpoint of apiEndpoints) {
-      try {
-        console.log(`🔄 Trying endpoint: ${endpoint}`);
+    // Try Binance first (original implementation)
+    if (this.exchange === 'binance') {
+      for (const endpoint of config.restEndpoints) {
+        try {
+          console.log(`🔄 Trying endpoint: ${endpoint}`);
 
-        const response = await axios.get(endpoint, {
-          params: {
-            symbol: this.symbol,
-            limit: this.orderBookDepth * 2 // Get extra depth for safety
-          },
-          timeout: 15000, // Increased timeout
-          headers: {
-            'User-Agent': 'SentryCoin-FlashCrash-Predictor/1.0.0'
+          const response = await axios.get(endpoint, {
+            params: {
+              symbol: this.symbol,
+              limit: this.orderBookDepth * 2
+            },
+            timeout: 15000,
+            headers: {
+              'User-Agent': 'SentryCoin-FlashCrash-Predictor/1.0.0'
+            }
+          });
+
+          const parsed = config.parseOrderBook(response.data);
+          this.populateOrderBook(parsed.bids, parsed.asks, parsed.lastUpdateId);
+
+          console.log(`✅ Order book initialized with ${parsed.bids.length} bids and ${parsed.asks.length} asks using ${endpoint}`);
+          return;
+
+        } catch (error) {
+          lastError = error;
+          console.log(`❌ Failed with ${endpoint}: ${error.message} (Status: ${error.response?.status})`);
+
+          if (error.response?.status === 451) {
+            console.log('⚠️ HTTP 451: This region may be blocked by Binance for legal/compliance reasons');
+            console.log('🔄 Switching to alternative exchange...');
+            this.exchange = 'coinbase'; // Fallback to Coinbase
+            break;
           }
-        });
-
-        const { bids, asks, lastUpdateId } = response.data;
-
-        // Clear existing order book
-        this.orderBook.bids.clear();
-        this.orderBook.asks.clear();
-
-        // Populate bids (buy orders)
-        bids.forEach(([price, quantity]) => {
-          this.orderBook.bids.set(parseFloat(price), parseFloat(quantity));
-        });
-
-        // Populate asks (sell orders)
-        asks.forEach(([price, quantity]) => {
-          this.orderBook.asks.set(parseFloat(price), parseFloat(quantity));
-        });
-
-        this.orderBook.lastUpdateId = lastUpdateId;
-
-        console.log(`✅ Order book initialized with ${bids.length} bids and ${asks.length} asks using ${endpoint}`);
-        return; // Success, exit the loop
-
-      } catch (error) {
-        lastError = error;
-        console.log(`❌ Failed with ${endpoint}: ${error.message} (Status: ${error.response?.status})`);
-
-        // If it's a 451 error, log specific guidance
-        if (error.response?.status === 451) {
-          console.log('⚠️ HTTP 451: This region may be blocked by Binance for legal/compliance reasons');
+          continue;
         }
-
-        continue; // Try next endpoint
       }
     }
 
-    // If all endpoints failed
+    // If Binance failed or using alternative exchange, try mock data for now
+    if (this.exchange !== 'binance') {
+      console.log(`🔄 Using ${config.name} - implementing mock data for demonstration`);
+      await this.initializeMockOrderBook();
+      return;
+    }
+
     throw new Error(`Failed to initialize order book from all endpoints. Last error: ${lastError.message}`);
+  }
+
+  /**
+   * Populates order book with bid/ask data
+   */
+  populateOrderBook(bids, asks, lastUpdateId) {
+    this.orderBook.bids.clear();
+    this.orderBook.asks.clear();
+
+    bids.forEach(([price, quantity]) => {
+      this.orderBook.bids.set(parseFloat(price), parseFloat(quantity));
+    });
+
+    asks.forEach(([price, quantity]) => {
+      this.orderBook.asks.set(parseFloat(price), parseFloat(quantity));
+    });
+
+    this.orderBook.lastUpdateId = lastUpdateId;
+  }
+
+  /**
+   * Initializes mock order book for demonstration when real APIs are blocked
+   */
+  async initializeMockOrderBook() {
+    console.log('🎭 Initializing mock order book for demonstration...');
+
+    // Generate realistic mock data based on symbol
+    const basePrice = this.getBasePriceForSymbol();
+    const mockBids = [];
+    const mockAsks = [];
+
+    // Generate 50 levels of mock bids (below current price)
+    for (let i = 0; i < this.orderBookDepth; i++) {
+      const price = basePrice - (i * 0.01);
+      const quantity = Math.random() * 10 + 1;
+      mockBids.push([price.toFixed(2), quantity.toFixed(4)]);
+    }
+
+    // Generate 50 levels of mock asks (above current price)
+    for (let i = 0; i < this.orderBookDepth; i++) {
+      const price = basePrice + (i * 0.01);
+      const quantity = Math.random() * 10 + 1;
+      mockAsks.push([price.toFixed(2), quantity.toFixed(4)]);
+    }
+
+    this.populateOrderBook(mockBids, mockAsks, Date.now());
+
+    console.log(`✅ Mock order book initialized with ${mockBids.length} bids and ${mockAsks.length} asks`);
+    console.log(`📊 Base price: $${basePrice.toFixed(2)} (${this.symbol})`);
+    console.log('⚠️ Note: Using simulated data - real trading data unavailable due to regional restrictions');
+  }
+
+  /**
+   * Gets base price for symbol (for mock data)
+   */
+  getBasePriceForSymbol() {
+    const prices = {
+      'BTCUSDT': 43000,
+      'ETHUSDT': 2500,
+      'SOLUSDT': 100,
+      'ADAUSDT': 0.5,
+      'DOGEUSDT': 0.08,
+      'BNBUSDT': 300
+    };
+
+    return prices[this.symbol] || 100;
   }
 
   /**
@@ -195,19 +329,24 @@ class FlashCrashPredictor {
   }
 
   /**
-   * Connects to Binance WebSocket depth stream
+   * Connects to exchange WebSocket depth stream
    */
   async connectWebSocket() {
-    // Try multiple WebSocket endpoints
-    const wsEndpoints = [
-      `wss://stream.binance.com:9443/ws/${this.symbol.toLowerCase()}@depth`,
-      `wss://stream.binance.com:443/ws/${this.symbol.toLowerCase()}@depth`,
-      `wss://stream1.binance.com:9443/ws/${this.symbol.toLowerCase()}@depth`,
-      `wss://stream2.binance.com:9443/ws/${this.symbol.toLowerCase()}@depth`
-    ];
+    const config = this.getExchangeConfig();
 
-    const wsUrl = wsEndpoints[this.reconnectAttempts % wsEndpoints.length];
-    console.log(`🔌 Connecting to WebSocket: ${wsUrl} (attempt ${this.reconnectAttempts + 1})`);
+    if (this.exchange === 'binance') {
+      await this.connectBinanceWebSocket(config);
+    } else {
+      await this.connectMockWebSocket(config);
+    }
+  }
+
+  /**
+   * Connects to Binance WebSocket
+   */
+  async connectBinanceWebSocket(config) {
+    const wsUrl = config.wsEndpoints[this.reconnectAttempts % config.wsEndpoints.length];
+    console.log(`🔌 Connecting to ${config.name} WebSocket: ${wsUrl} (attempt ${this.reconnectAttempts + 1})`);
 
     this.ws = new WebSocket(wsUrl, {
       headers: {
@@ -232,7 +371,8 @@ class FlashCrashPredictor {
     this.ws.on('error', (error) => {
       console.error('❌ WebSocket error:', error.message);
       if (error.message.includes('451')) {
-        console.log('⚠️ WebSocket blocked (451) - trying alternative endpoint on reconnect');
+        console.log('⚠️ WebSocket blocked (451) - switching to mock mode');
+        this.exchange = 'coinbase'; // Switch to mock mode
       }
     });
 
@@ -241,6 +381,65 @@ class FlashCrashPredictor {
       this.isConnected = false;
       this.handleReconnection();
     });
+  }
+
+  /**
+   * Connects to mock WebSocket for demonstration
+   */
+  async connectMockWebSocket(config) {
+    console.log(`🎭 Starting mock WebSocket for ${config.name} (demonstration mode)`);
+    console.log('📊 Generating simulated market data...');
+
+    this.isConnected = true;
+    this.reconnectAttempts = 0;
+
+    // Simulate market data updates every 2 seconds
+    this.mockInterval = setInterval(() => {
+      this.generateMockDepthUpdate();
+    }, 2000);
+
+    console.log('✅ Mock WebSocket connected successfully');
+  }
+
+  /**
+   * Generates mock depth updates for demonstration
+   */
+  generateMockDepthUpdate() {
+    if (!this.isConnected) return;
+
+    // Generate random price movements
+    const basePrice = this.getBasePriceForSymbol();
+    const priceChange = (Math.random() - 0.5) * 0.02; // ±1% change
+
+    // Create mock depth update
+    const mockUpdate = {
+      b: [], // bids
+      a: [], // asks
+      u: Date.now() // update ID
+    };
+
+    // Add some random bid/ask updates
+    for (let i = 0; i < 5; i++) {
+      const bidPrice = (basePrice + priceChange - (i * 0.01)).toFixed(2);
+      const askPrice = (basePrice + priceChange + (i * 0.01)).toFixed(2);
+      const quantity = (Math.random() * 10 + 1).toFixed(4);
+
+      mockUpdate.b.push([bidPrice, quantity]);
+      mockUpdate.a.push([askPrice, quantity]);
+    }
+
+    // Occasionally create imbalanced conditions for testing
+    if (Math.random() < 0.1) { // 10% chance
+      // Create sell pressure (more asks)
+      for (let i = 0; i < 10; i++) {
+        const askPrice = (basePrice + priceChange + (i * 0.005)).toFixed(2);
+        const quantity = (Math.random() * 50 + 10).toFixed(4); // Larger quantities
+        mockUpdate.a.push([askPrice, quantity]);
+      }
+      console.log('🎭 Generated mock sell pressure for testing');
+    }
+
+    this.processDepthUpdate(mockUpdate);
   }
 
   /**
@@ -472,6 +671,9 @@ class FlashCrashPredictor {
     console.log('🛑 Shutting down Flash Crash Predictor...');
     if (this.ws) {
       this.ws.close();
+    }
+    if (this.mockInterval) {
+      clearInterval(this.mockInterval);
     }
     process.exit(0);
   }

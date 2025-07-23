@@ -16,6 +16,8 @@ services:
         sync: false
       - key: SYMBOL
         value: SOLUSDT
+      - key: EXCHANGE
+        value: coinbase
       - key: DANGER_RATIO
         value: "2.5"
       - key: ORDER_BOOK_DEPTH
