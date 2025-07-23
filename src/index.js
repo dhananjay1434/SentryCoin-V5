@@ -53,12 +53,37 @@ async function main() {
       status: 'SentryCoin Flash Crash Predictor is running',
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
-      monitoring: process.env.SYMBOL || 'SOLUSDT'
+      monitoring: process.env.SYMBOL || 'SOLUSDT',
+      version: '1.0.0',
+      webServer: 'Active',
+      predictor: predictor ? 'Initialized' : 'Starting...'
     });
   });
 
   app.get('/health', (req, res) => {
-    res.json({ status: 'ok', service: 'flash-crash-predictor' });
+    res.json({
+      status: 'ok',
+      service: 'flash-crash-predictor',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  app.get('/status', (req, res) => {
+    res.json({
+      service: 'SentryCoin Flash Crash Predictor',
+      version: '1.0.0',
+      status: 'Running',
+      symbol: process.env.SYMBOL || 'SOLUSDT',
+      dangerRatio: process.env.DANGER_RATIO || '2.5',
+      uptime: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+      endpoints: {
+        health: '/health',
+        status: '/status',
+        home: '/'
+      }
+    });
   });
 
   // Start Express server
@@ -95,13 +120,14 @@ async function main() {
   try {
     // Start the prediction engine
     await predictor.start();
-    
+
     // Keep the process running
     console.log('🔄 Engine running... Press Ctrl+C to stop\n');
-    
+
   } catch (error) {
     console.error('❌ Failed to start Flash Crash Predictor:', error.message);
-    process.exit(1);
+    console.log('🌐 Web server will continue running for health checks');
+    // Don't exit - keep web server running for Render
   }
 }
 

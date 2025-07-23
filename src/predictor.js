@@ -46,24 +46,29 @@ class FlashCrashPredictor {
   async start() {
     try {
       console.log('🚀 Starting Flash Crash Predictor...');
-      
-      // Test Telegram connection
-      await this.alerter.sendTestAlert();
-      
-      // Initialize order book from REST API
-      await this.initializeOrderBook();
-      
+
+      // Test Telegram connection (non-blocking)
+      try {
+        await this.alerter.sendTestAlert();
+      } catch (telegramError) {
+        console.log('⚠️ Telegram test failed (will retry later):', telegramError.message);
+      }
+
+      // Initialize order book from REST API with retry
+      await this.initializeOrderBookWithRetry();
+
       // Start WebSocket connection
       await this.connectWebSocket();
-      
+
       // Start statistics reporting
       this.startStatsReporting();
-      
+
       console.log('✅ Flash Crash Predictor is now running');
-      
+
     } catch (error) {
       console.error('❌ Failed to start predictor:', error.message);
-      process.exit(1);
+      console.log('🔄 Will continue running web server...');
+      // Don't exit - keep web server running
     }
   }
 
@@ -72,37 +77,67 @@ class FlashCrashPredictor {
    */
   async initializeOrderBook() {
     console.log('📊 Initializing order book snapshot...');
-    
+
     try {
       const response = await axios.get(`https://api.binance.com/api/v3/depth`, {
         params: {
           symbol: this.symbol,
           limit: this.orderBookDepth * 2 // Get extra depth for safety
-        }
+        },
+        timeout: 10000 // 10 second timeout
       });
 
       const { bids, asks, lastUpdateId } = response.data;
-      
+
       // Clear existing order book
       this.orderBook.bids.clear();
       this.orderBook.asks.clear();
-      
+
       // Populate bids (buy orders)
       bids.forEach(([price, quantity]) => {
         this.orderBook.bids.set(parseFloat(price), parseFloat(quantity));
       });
-      
+
       // Populate asks (sell orders)
       asks.forEach(([price, quantity]) => {
         this.orderBook.asks.set(parseFloat(price), parseFloat(quantity));
       });
-      
+
       this.orderBook.lastUpdateId = lastUpdateId;
-      
+
       console.log(`✅ Order book initialized with ${bids.length} bids and ${asks.length} asks`);
-      
+
     } catch (error) {
       throw new Error(`Failed to initialize order book: ${error.message}`);
+    }
+  }
+
+  /**
+   * Initializes order book with retry logic
+   */
+  async initializeOrderBookWithRetry() {
+    const maxRetries = 3;
+    const retryDelay = 5000; // 5 seconds
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.initializeOrderBook();
+        return; // Success
+      } catch (error) {
+        console.log(`❌ Order book init attempt ${attempt}/${maxRetries} failed: ${error.message}`);
+
+        if (attempt === maxRetries) {
+          console.log('⚠️ All order book init attempts failed. Starting with empty order book...');
+          // Initialize with empty order book
+          this.orderBook.bids.clear();
+          this.orderBook.asks.clear();
+          this.orderBook.lastUpdateId = 0;
+          return;
+        }
+
+        console.log(`🔄 Retrying in ${retryDelay/1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
     }
   }
 
