@@ -27,7 +27,11 @@ class FlashCrashPredictor {
     
     // Alerting system
     this.alerter = new FlashCrashAlerter();
-    
+
+    // Cooldown system to prevent alert spam
+    this.lastAlertTime = null;
+    this.cooldownMinutes = parseInt(process.env.COOLDOWN_MINUTES) || 5;
+
     // Statistics
     this.stats = {
       messagesProcessed: 0,
@@ -508,7 +512,7 @@ class FlashCrashPredictor {
     this.stats.lastRatio = askToBidRatio;
     
     // Check for flash crash conditions
-    if (askToBidRatio > this.dangerRatio && !this.alerter.isOnCooldown()) {
+    if (askToBidRatio > this.dangerRatio && !this.isOnCooldown()) {
       this.triggerFlashCrashAlert({
         askToBidRatio,
         totalBidVolume,
@@ -568,6 +572,8 @@ class FlashCrashPredictor {
     
     if (success) {
       this.stats.alertsTriggered++;
+      this.lastAlertTime = Date.now(); // Activate cooldown period
+      console.log(`⏰ Alert cooldown activated for ${this.cooldownMinutes} minutes`);
     }
   }
 
@@ -640,6 +646,20 @@ class FlashCrashPredictor {
         this.degradedModeStartTime = Date.now(); // Reset timer
       });
     }
+  }
+
+  /**
+   * Checks if the system is currently in cooldown period
+   */
+  isOnCooldown() {
+    if (!this.lastAlertTime) {
+      return false;
+    }
+
+    const cooldownMs = this.cooldownMinutes * 60 * 1000;
+    const timeSinceLastAlert = Date.now() - this.lastAlertTime;
+
+    return timeSinceLastAlert < cooldownMs;
   }
 
   /**
