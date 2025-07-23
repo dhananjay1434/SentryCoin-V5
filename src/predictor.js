@@ -131,11 +131,16 @@ class FlashCrashPredictor {
       coinbase: {
         name: 'Coinbase Pro',
         restEndpoints: [
-          'https://api.exchange.coinbase.com/products'
+          'https://api.exchange.coinbase.com/products/{symbol}/book?level=2'
         ],
         wsEndpoints: [
           'wss://ws-feed.exchange.coinbase.com'
         ],
+        symbolFormat: (symbol) => {
+          // Convert SOLUSDT to SOL-USD format
+          const base = symbol.replace('USDT', '').replace('USDC', '');
+          return `${base}-USD`;
+        },
         parseOrderBook: (data) => ({
           bids: data.bids || [],
           asks: data.asks || [],
