@@ -535,7 +535,8 @@ class FlashCrashPredictor {
     // Log periodic updates (every 1000 messages)
     if (this.stats.messagesProcessed % 1000 === 0) {
       const currentPrice = this.getCurrentPrice();
-      console.log(`📊 Price: $${currentPrice.toFixed(6)} | Ratio: ${askToBidRatio.toFixed(2)}x | Bids: ${totalBidVolume.toFixed(2)} | Asks: ${totalAskVolume.toFixed(2)}`);
+      const istTime = this.getISTTime();
+      console.log(`📊 [${istTime}] Price: $${currentPrice.toFixed(6)} | Ratio: ${askToBidRatio.toFixed(2)}x | Bids: ${totalBidVolume.toFixed(2)} | Asks: ${totalAskVolume.toFixed(2)}`);
 
       // Show validation stats
       const validationStats = this.validator.getStats();
@@ -574,11 +575,22 @@ class FlashCrashPredictor {
   }
 
   /**
+   * Gets current time in Indian Standard Time (IST)
+   * @returns {string} Formatted IST time
+   */
+  getISTTime() {
+    const now = new Date();
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    return istTime.toISOString().replace('T', ' ').substring(0, 19) + ' IST';
+  }
+
+  /**
    * Triggers flash crash alert
    * @param {Object} alertData - Alert data
    */
   async triggerFlashCrashAlert(alertData) {
-    console.log(`🚨 FLASH CRASH CONDITIONS DETECTED!`);
+    const istTime = this.getISTTime();
+    console.log(`🚨 FLASH CRASH CONDITIONS DETECTED! [${istTime}]`);
     console.log(`   Ask/Bid Ratio: ${alertData.askToBidRatio.toFixed(2)}x (threshold: ${this.dangerRatio}x)`);
     console.log(`   Total Bid Volume: ${alertData.totalBidVolume.toFixed(2)}`);
     console.log(`   Total Ask Volume: ${alertData.totalAskVolume.toFixed(2)}`);
@@ -628,8 +640,9 @@ class FlashCrashPredictor {
     setInterval(() => {
       const uptime = Math.floor((Date.now() - this.stats.startTime) / 1000);
       const messagesPerSecond = this.stats.messagesProcessed / uptime;
+      const istTime = this.getISTTime();
 
-      let statusMsg = `📈 Stats: ${this.stats.messagesProcessed} msgs | ${this.stats.alertsTriggered} alerts | ${messagesPerSecond.toFixed(2)} msg/s | Ratio: ${this.stats.lastRatio.toFixed(2)}x`;
+      let statusMsg = `📈 Stats [${istTime}]: ${this.stats.messagesProcessed} msgs | ${this.stats.alertsTriggered} alerts | ${messagesPerSecond.toFixed(2)} msg/s | Ratio: ${this.stats.lastRatio.toFixed(2)}x`;
 
       if (this.degradedMode) {
         statusMsg += ' | ⚠️ DEGRADED MODE';
