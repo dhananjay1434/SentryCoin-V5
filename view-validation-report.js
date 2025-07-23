@@ -112,14 +112,38 @@ class ValidationReportViewer {
   showValidationDetails(results) {
     console.log('📈 VALIDATION DETAILS (Last 10)');
     console.log('===============================');
-    
+
     results.forEach(result => {
       const status = result.correct ? '✅' : '❌';
       console.log(`${status} Signal: $${result.signalPrice.toFixed(6)} → Max Drop: ${result.maxDrop.toFixed(2)}%`);
       console.log(`   Risk Level: ${result.riskLevel} | Ratio: ${result.askBidRatio.toFixed(2)}x`);
       console.log(`   Time: ${new Date(result.timestamp).toLocaleString()}`);
+
+      // Show detailed timeline if available
+      const signal = this.findSignalById(result.signalId);
+      if (signal && signal.validation.isValidated) {
+        const v = signal.validation;
+        console.log(`   Immediate Reaction (10s): ${v.accuracy10sec?.toFixed(2) || 'N/A'}%`);
+        console.log(`   Timeline: 10s(${v.accuracy10sec?.toFixed(2) || 'N/A'}%) → 30s(${v.accuracy30sec?.toFixed(2) || 'N/A'}%) → 1m(${v.accuracy1min?.toFixed(2) || 'N/A'}%) → 2m(${v.accuracy2min?.toFixed(2) || 'N/A'}%) → 3m(${v.accuracy3min?.toFixed(2) || 'N/A'}%) → 5m(${v.accuracy5min?.toFixed(2) || 'N/A'}%)`);
+        if (v.fastestDrop) {
+          console.log(`   Fastest Drop: >1% within ${v.fastestDrop}`);
+        }
+      }
       console.log('');
     });
+  }
+
+  findSignalById(signalId) {
+    try {
+      const dataFile = `signal-validation-${this.symbol}.json`;
+      if (fs.existsSync(dataFile)) {
+        const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+        return data.signals.find(s => s.id === signalId);
+      }
+    } catch (error) {
+      // Ignore errors
+    }
+    return null;
   }
 
   showDetailedReport(report) {

@@ -31,17 +31,26 @@ class SignalValidator {
       riskLevel: this.getRiskLevel(signalData.askToBidRatio),
       priceTracking: {
         t0: signalData.currentPrice, // Price at signal
+        t10sec: null, // Price after 10 seconds
+        t30sec: null, // Price after 30 seconds
         t1min: null,  // Price after 1 minute
+        t2min: null,  // Price after 2 minutes
         t3min: null,  // Price after 3 minutes
         t5min: null,  // Price after 5 minutes
       },
       validation: {
         isValidated: false,
+        accuracy10sec: null,
+        accuracy30sec: null,
         accuracy1min: null,
+        accuracy2min: null,
         accuracy3min: null,
         accuracy5min: null,
         maxDrop: null,
-        predictionCorrect: null
+        predictionCorrect: null,
+        fastestDrop: null, // How quickly the drop occurred
+        dropTiming: null,  // When the maximum drop happened
+        immediateReaction: null // Price change within first 10 seconds
       }
     };
 
@@ -67,23 +76,45 @@ class SignalValidator {
 
     const signalTime = new Date(signal.timestamp);
     const now = new Date();
-    const minutesElapsed = (now - signalTime) / (1000 * 60);
+    const secondsElapsed = (now - signalTime) / 1000;
+    const minutesElapsed = secondsElapsed / 60;
 
     // Update price tracking based on time elapsed
+    if (secondsElapsed >= 10 && signal.priceTracking.t10sec === null) {
+      signal.priceTracking.t10sec = currentPrice;
+      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
+      console.log(`⚡ 10sec update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
+    }
+
+    if (secondsElapsed >= 30 && signal.priceTracking.t30sec === null) {
+      signal.priceTracking.t30sec = currentPrice;
+      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
+      console.log(`📈 30sec update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
+    }
+
     if (minutesElapsed >= 1 && signal.priceTracking.t1min === null) {
       signal.priceTracking.t1min = currentPrice;
-      console.log(`📈 1min update for ${signalId}: $${currentPrice.toFixed(6)}`);
+      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
+      console.log(`📈 1min update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
     }
-    
+
+    if (minutesElapsed >= 2 && signal.priceTracking.t2min === null) {
+      signal.priceTracking.t2min = currentPrice;
+      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
+      console.log(`📈 2min update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
+    }
+
     if (minutesElapsed >= 3 && signal.priceTracking.t3min === null) {
       signal.priceTracking.t3min = currentPrice;
-      console.log(`📈 3min update for ${signalId}: $${currentPrice.toFixed(6)}`);
+      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
+      console.log(`📈 3min update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
     }
-    
+
     if (minutesElapsed >= 5 && signal.priceTracking.t5min === null) {
       signal.priceTracking.t5min = currentPrice;
-      console.log(`📈 5min update for ${signalId}: $${currentPrice.toFixed(6)}`);
-      
+      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
+      console.log(`📈 5min update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
+
       // Perform final validation
       this.validateSignal(signalId);
     }
@@ -99,28 +130,53 @@ class SignalValidator {
     const signal = this.signals.find(s => s.id === signalId);
     if (!signal || signal.validation.isValidated) return;
 
-    const { t0, t1min, t3min, t5min } = signal.priceTracking;
-    
+    const { t0, t10sec, t30sec, t1min, t2min, t3min, t5min } = signal.priceTracking;
+
     // Calculate price changes (negative = drop, positive = rise)
+    const change10sec = t10sec ? ((t10sec - t0) / t0) * 100 : null;
+    const change30sec = t30sec ? ((t30sec - t0) / t0) * 100 : null;
     const change1min = t1min ? ((t1min - t0) / t0) * 100 : null;
+    const change2min = t2min ? ((t2min - t0) / t0) * 100 : null;
     const change3min = t3min ? ((t3min - t0) / t0) * 100 : null;
     const change5min = t5min ? ((t5min - t0) / t0) * 100 : null;
-    
-    // Find maximum drop
-    const prices = [t0, t1min, t3min, t5min].filter(p => p !== null);
-    const maxDrop = ((Math.min(...prices) - t0) / t0) * 100;
-    
+
+    // Find maximum drop and when it occurred
+    const pricePoints = [
+      { time: '0sec', price: t0, change: 0 },
+      { time: '10sec', price: t10sec, change: change10sec },
+      { time: '30sec', price: t30sec, change: change30sec },
+      { time: '1min', price: t1min, change: change1min },
+      { time: '2min', price: t2min, change: change2min },
+      { time: '3min', price: t3min, change: change3min },
+      { time: '5min', price: t5min, change: change5min }
+    ].filter(p => p.price !== null);
+
+    const minPoint = pricePoints.reduce((min, point) =>
+      point.price < min.price ? point : min, pricePoints[0]);
+
+    const maxDrop = minPoint.change;
+    const dropTiming = minPoint.time;
+
+    // Find fastest significant drop (first time it dropped >1%)
+    const fastestDrop = pricePoints.find(p => p.change < -1);
+
     // Determine if prediction was correct (expecting a drop)
     const significantDrop = maxDrop < -2; // 2% drop threshold
     const predictionCorrect = significantDrop;
 
     signal.validation = {
       isValidated: true,
+      accuracy10sec: change10sec,
+      accuracy30sec: change30sec,
       accuracy1min: change1min,
+      accuracy2min: change2min,
       accuracy3min: change3min,
       accuracy5min: change5min,
       maxDrop: maxDrop,
       predictionCorrect: predictionCorrect,
+      fastestDrop: fastestDrop ? fastestDrop.time : null,
+      dropTiming: dropTiming,
+      immediateReaction: change10sec, // Track immediate market reaction
       validatedAt: new Date().toISOString()
     };
 
@@ -135,8 +191,14 @@ class SignalValidator {
       askBidRatio: signal.askBidRatio
     });
 
-    console.log(`✅ Signal ${signalId} validated: ${predictionCorrect ? 'CORRECT' : 'INCORRECT'} (Max drop: ${maxDrop.toFixed(2)}%)`);
-    
+    console.log(`✅ Signal ${signalId} validated: ${predictionCorrect ? 'CORRECT' : 'INCORRECT'}`);
+    console.log(`   Max drop: ${maxDrop.toFixed(2)}% at ${dropTiming}`);
+    console.log(`   Immediate reaction (10s): ${change10sec?.toFixed(2) || 'N/A'}%`);
+    if (fastestDrop) {
+      console.log(`   Fastest drop: >1% within ${fastestDrop.time}`);
+    }
+    console.log(`   Timeline: 10s(${change10sec?.toFixed(2) || 'N/A'}%) → 30s(${change30sec?.toFixed(2) || 'N/A'}%) → 1m(${change1min?.toFixed(2) || 'N/A'}%) → 2m(${change2min?.toFixed(2) || 'N/A'}%) → 3m(${change3min?.toFixed(2) || 'N/A'}%) → 5m(${change5min?.toFixed(2) || 'N/A'}%)`);
+
     this.saveData();
     this.generateReport();
   }
