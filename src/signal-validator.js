@@ -6,11 +6,12 @@ import path from 'path';
  * Monitors price movements after each alert to measure accuracy
  */
 class SignalValidator {
-  constructor(symbol) {
+  constructor(symbol, onSignalCompleted = null) {
     this.symbol = symbol;
     this.signals = [];
     this.validationResults = [];
     this.dataFile = `signal-validation-${symbol}.json`;
+    this.onSignalCompleted = onSignalCompleted; // Callback when signal validation completes
     this.loadExistingData();
   }
 
@@ -201,6 +202,11 @@ class SignalValidator {
 
     this.saveData();
     this.generateReport();
+
+    // Notify predictor that this signal is completed
+    if (this.onSignalCompleted) {
+      this.onSignalCompleted(signalId);
+    }
   }
 
   /**

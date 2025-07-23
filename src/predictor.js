@@ -30,7 +30,15 @@ class FlashCrashPredictor {
     this.alerter = new FlashCrashAlerter();
 
     // Signal validation system
-    this.validator = new SignalValidator(this.symbol);
+    this.validator = new SignalValidator(this.symbol, (signalId) => {
+      // Remove completed signal from active tracking
+      this.activeSignals.delete(signalId);
+      console.log(`🏁 Signal ${signalId} removed from active tracking`);
+    });
+
+    // Active signal tracking
+    this.activeSignals = new Set(); // Track multiple active signals
+    this.priceTrackingTimer = null;
 
     // Cooldown system to prevent alert spam
     this.lastAlertTime = null;
@@ -526,12 +534,6 @@ class FlashCrashPredictor {
       });
     }
     
-    // Update price tracking for active signals
-    if (this.currentSignalId) {
-      const currentPrice = this.getCurrentPrice();
-      this.validator.updatePriceTracking(this.currentSignalId, currentPrice);
-    }
-
     // Log periodic updates (every 1000 messages)
     if (this.stats.messagesProcessed % 1000 === 0) {
       const currentPrice = this.getCurrentPrice();
@@ -585,6 +587,41 @@ class FlashCrashPredictor {
   }
 
   /**
+   * Starts dedicated price tracking timer for active signals
+   */
+  startPriceTracking() {
+    if (this.priceTrackingTimer) return; // Already running
+
+    // Check every 2 seconds for precise timing
+    this.priceTrackingTimer = setInterval(() => {
+      if (this.activeSignals.size > 0) {
+        const currentPrice = this.getCurrentPrice();
+
+        // Update all active signals
+        this.activeSignals.forEach(signalId => {
+          this.validator.updatePriceTracking(signalId, currentPrice);
+        });
+      } else {
+        // No active signals, stop timer to save resources
+        this.stopPriceTracking();
+      }
+    }, 2000); // Check every 2 seconds for precision
+
+    console.log(`⏰ Price tracking timer started (checking every 2 seconds)`);
+  }
+
+  /**
+   * Stops price tracking timer
+   */
+  stopPriceTracking() {
+    if (this.priceTrackingTimer) {
+      clearInterval(this.priceTrackingTimer);
+      this.priceTrackingTimer = null;
+      console.log(`⏰ Price tracking timer stopped`);
+    }
+  }
+
+  /**
    * Triggers flash crash alert
    * @param {Object} alertData - Alert data
    */
@@ -609,8 +646,12 @@ class FlashCrashPredictor {
       this.lastAlertTime = Date.now(); // Activate cooldown period
       console.log(`⏰ Alert cooldown activated for ${this.cooldownMinutes} minutes`);
 
-      // Store signal ID for price tracking
-      this.currentSignalId = signalId;
+      // Add signal to active tracking
+      this.activeSignals.add(signalId);
+      this.currentSignalId = signalId; // Keep for backward compatibility
+
+      // Start dedicated price tracking timer
+      this.startPriceTracking();
     }
   }
 
