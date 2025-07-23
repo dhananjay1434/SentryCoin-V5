@@ -16,6 +16,7 @@
  */
 
 import FlashCrashPredictor from './predictor.js';
+import express from 'express';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -38,10 +39,34 @@ function validateEnvironment() {
 async function main() {
   console.log('🛡️ SentryCoin Flash Crash Predictor v1.0.0');
   console.log('📊 Real-time order book imbalance detection engine\n');
-  
+
   // Validate environment
   validateEnvironment();
-  
+
+  // Create Express app for Web Service compatibility
+  const app = express();
+  const port = process.env.PORT || 3000;
+
+  // Health check endpoint to keep service alive
+  app.get('/', (req, res) => {
+    res.json({
+      status: 'SentryCoin Flash Crash Predictor is running',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      monitoring: process.env.SYMBOL || 'SOLUSDT'
+    });
+  });
+
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok', service: 'flash-crash-predictor' });
+  });
+
+  // Start Express server
+  app.listen(port, () => {
+    console.log(`🌐 Web server running on port ${port}`);
+    console.log(`📡 Health check: http://localhost:${port}/health`);
+  });
+
   // Create and start the predictor
   const predictor = new FlashCrashPredictor();
   
