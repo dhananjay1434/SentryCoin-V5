@@ -7,13 +7,17 @@
   "scripts": {
     "start": "node src/index.js",
     "start:multi": "node src/multi-symbol-predictor.js",
+    "start:trifecta": "ALGORITHM_VERSION=v3.0 ENABLE_TRIFECTA=true node src/index.js",
     "dev": "node --watch src/index.js",
     "dev:multi": "node --watch src/multi-symbol-predictor.js",
+    "dev:trifecta": "ALGORITHM_VERSION=v3.0 ENABLE_TRIFECTA=true node --watch src/index.js",
     "test": "node src/test.js",
+    "test:trifecta": "node trifecta-backtest.js",
     "backtest": "node run-backtest.js",
     "backtest:fetch": "node run-backtest.js fetch",
     "backtest:test": "node run-backtest.js test",
     "backtest:quick": "node run-backtest.js quick",
+    "backtest:trifecta": "node trifecta-backtest.js",
     "connectivity": "node src/connectivity-test.js",
     "build": "echo 'No build step required for Node.js'",
     "validation-report": "node view-validation-report.js"

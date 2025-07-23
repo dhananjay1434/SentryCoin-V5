@@ -1,0 +1,30 @@
+{
+  "timestamp": "2025-07-23T18:28:58.772Z",
+  "results": {
+    "v1": {
+      "total": 7,
+      "correct": 3,
+      "falsePositives": 4,
+      "accuracy": 42.857142857142854,
+      "precision": 42.857142857142854,
+      "recall": 100
+    },
+    "v2": {
+      "total": 5,
+      "correct": 3,
+      "falsePositives": 2,
+      "accuracy": 60,
+      "precision": 60,
+      "recall": 100
+    },
+    "v3": {
+      "total": 3,
+      "correct": 3,
+      "falsePositives": 0,
+      "accuracy": 100,
+      "precision": 100,
+      "recall": 100
+    }
+  },
+  "conclusion": "DEPLOY"
+}

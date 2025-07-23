@@ -2,6 +2,7 @@ import WebSocket from 'ws';
 import axios from 'axios';
 import FlashCrashAlerter from './alerter.js';
 import SignalValidator from './signal-validator.js';
+import { getISTTime, parseFloatEnv, parseIntEnv } from './utils.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,23 +10,31 @@ dotenv.config();
 class FlashCrashPredictor {
   constructor() {
     this.symbol = process.env.SYMBOL || 'BTCUSDT';
-    this.dangerRatio = parseFloat(process.env.DANGER_RATIO) || 3.0;
-    this.orderBookDepth = parseInt(process.env.ORDER_BOOK_DEPTH) || 50;
+    this.dangerRatio = parseFloatEnv('DANGER_RATIO', 3.0);
+    this.orderBookDepth = parseIntEnv('ORDER_BOOK_DEPTH', 50);
     this.exchange = process.env.EXCHANGE || 'coinbase'; // Default to Coinbase Pro
-    
+
+    // Algorithm version configuration
+    this.algorithmVersion = process.env.ALGORITHM_VERSION || 'v3.0'; // Default to Trifecta
+    this.enableTrifecta = process.env.ENABLE_TRIFECTA !== 'false'; // Default enabled
+
     // Order book state
     this.orderBook = {
       bids: new Map(), // price -> quantity
       asks: new Map(), // price -> quantity
       lastUpdateId: 0
     };
-    
+
+    // Price history for momentum calculation (Trifecta v3.0)
+    this.priceHistory = [];
+    this.maxPriceHistoryLength = 300; // 5 minutes at 1-second intervals
+
     // WebSocket connection
     this.ws = null;
     this.isConnected = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
-    
+
     // Alerting system
     this.alerter = new FlashCrashAlerter();
 
@@ -42,7 +51,7 @@ class FlashCrashPredictor {
 
     // Cooldown system to prevent alert spam
     this.lastAlertTime = null;
-    this.cooldownMinutes = parseInt(process.env.COOLDOWN_MINUTES) || 5;
+    this.cooldownMinutes = parseIntEnv('COOLDOWN_MINUTES', 5);
 
     // Statistics
     this.stats = {
@@ -51,7 +60,11 @@ class FlashCrashPredictor {
       lastRatio: 0,
       startTime: Date.now(),
       connectionErrors: 0,
-      lastSuccessfulConnection: null
+      lastSuccessfulConnection: null,
+      trifectaSignals: 0,
+      partialTrifectaSignals: 0,
+      v1Signals: 0,
+      v2Signals: 0
     };
 
     // Graceful degradation mode
@@ -509,42 +522,123 @@ class FlashCrashPredictor {
 
   /**
    * Core algorithm: Analyzes order book for flash crash conditions
+   * SentryCoin v3.0 - Trifecta Algorithm
+   * Based on quantitative analysis of 19 validated signals
    */
   analyzeFlashCrashConditions() {
     // Get top N levels of bids and asks
     const topBids = this.getTopOrderBookLevels(this.orderBook.bids, this.orderBookDepth, 'desc');
     const topAsks = this.getTopOrderBookLevels(this.orderBook.asks, this.orderBookDepth, 'asc');
-    
+
     // Calculate total volumes
     const totalBidVolume = topBids.reduce((sum, [, quantity]) => sum + quantity, 0);
     const totalAskVolume = topAsks.reduce((sum, [, quantity]) => sum + quantity, 0);
-    
+
     // Calculate the critical ratio
     const askToBidRatio = totalBidVolume > 0 ? totalAskVolume / totalBidVolume : 0;
-    
+    const currentPrice = this.getCurrentPrice();
+
     this.stats.lastRatio = askToBidRatio;
-    
-    // Check for flash crash conditions
-    if (askToBidRatio > this.dangerRatio && !this.isOnCooldown()) {
-      this.triggerFlashCrashAlert({
-        askToBidRatio,
-        totalBidVolume,
-        totalAskVolume,
-        currentPrice: this.getCurrentPrice()
-      });
+
+    // Update price history for momentum calculation
+    this.updatePriceHistory(currentPrice);
+
+    if (this.enableTrifecta && this.algorithmVersion === 'v3.0') {
+      this.analyzeTrifectaConditions(askToBidRatio, totalBidVolume, totalAskVolume, currentPrice);
+    } else {
+      // Fallback to v2.0 Golden Signal Algorithm
+      this.analyzeGoldenSignalConditions(askToBidRatio, totalBidVolume, totalAskVolume, currentPrice);
     }
-    
+
     // Log periodic updates (every 1000 messages)
     if (this.stats.messagesProcessed % 1000 === 0) {
-      const currentPrice = this.getCurrentPrice();
-      const istTime = this.getISTTime();
-      console.log(`📊 [${istTime}] Price: $${currentPrice.toFixed(6)} | Ratio: ${askToBidRatio.toFixed(2)}x | Bids: ${totalBidVolume.toFixed(2)} | Asks: ${totalAskVolume.toFixed(2)}`);
+      const istTime = getISTTime();
+      console.log(`📊 [${istTime}] ${this.algorithmVersion} | Price: $${currentPrice.toFixed(6)} | Ratio: ${askToBidRatio.toFixed(2)}x | Bids: ${totalBidVolume.toFixed(2)} | Asks: ${totalAskVolume.toFixed(2)}`);
+
+      if (this.enableTrifecta) {
+        const momentum = this.calculateMomentum();
+        console.log(`🎯 Trifecta Status: Pressure(${askToBidRatio > 3.0 ? '✅' : '❌'}) | Liquidity(${totalBidVolume < 100000 ? '✅' : '❌'}) | Momentum(${momentum <= -0.1 ? '✅' : '❌'})`);
+      }
 
       // Show validation stats
       const validationStats = this.validator.getStats();
       if (validationStats.totalSignals > 0) {
         console.log(`📈 Validation: ${validationStats.totalSignals} signals, ${validationStats.accuracy.toFixed(1)}% accuracy`);
       }
+    }
+  }
+
+  /**
+   * SentryCoin v3.0 - Trifecta Algorithm
+   * Requires ALL THREE conditions for signal generation
+   */
+  analyzeTrifectaConditions(askToBidRatio, totalBidVolume, totalAskVolume, currentPrice) {
+    // Factor 1: High Pressure (Sell-side overwhelming buy-side)
+    const pressureCondition = askToBidRatio > 3.0;
+
+    // Factor 2: Fragile Foundation (Thin buy-side support)
+    const liquidityCondition = totalBidVolume < 100000;
+
+    // Factor 3: Bearish Weather (Negative or flat momentum)
+    const momentum = this.calculateMomentum();
+    const momentumCondition = momentum <= -0.1; // -0.1% or worse momentum
+
+    // The Trifecta Signal: All three conditions must be met
+    const isTrifectaSignal = pressureCondition && liquidityCondition && momentumCondition;
+
+    // Research signals for analysis (partial conditions met)
+    const isPartialTrifecta = (pressureCondition && liquidityCondition) ||
+                             (pressureCondition && momentumCondition) ||
+                             (liquidityCondition && momentumCondition);
+
+    if (isTrifectaSignal && !this.isOnCooldown()) {
+      this.stats.trifectaSignals++;
+      this.triggerFlashCrashAlert({
+        askToBidRatio,
+        totalBidVolume,
+        totalAskVolume,
+        currentPrice,
+        momentum,
+        signalType: 'TRIFECTA',
+        confidence: 'VERY HIGH',
+        algorithmVersion: 'v3.0'
+      });
+    } else if (isPartialTrifecta) {
+      this.logTrifectaResearchSignal({
+        askToBidRatio,
+        totalBidVolume,
+        totalAskVolume,
+        currentPrice,
+        momentum,
+        pressureCondition,
+        liquidityCondition,
+        momentumCondition,
+        signalType: 'PARTIAL_TRIFECTA'
+      });
+    }
+  }
+
+  /**
+   * SentryCoin v2.0 - Golden Signal Algorithm (Fallback)
+   */
+  analyzeGoldenSignalConditions(askToBidRatio, totalBidVolume, totalAskVolume, currentPrice) {
+    const goldenSignalRatioThreshold = 2.749;
+    const goldenSignalVolumeThreshold = 100000;
+
+    const isGoldenSignal = askToBidRatio >= goldenSignalRatioThreshold &&
+                          totalBidVolume < goldenSignalVolumeThreshold;
+
+    if (isGoldenSignal && !this.isOnCooldown()) {
+      this.stats.v2Signals++;
+      this.triggerFlashCrashAlert({
+        askToBidRatio,
+        totalBidVolume,
+        totalAskVolume,
+        currentPrice,
+        signalType: 'GOLDEN',
+        confidence: 'HIGH',
+        algorithmVersion: 'v2.0'
+      });
     }
   }
 
@@ -577,14 +671,63 @@ class FlashCrashPredictor {
   }
 
   /**
-   * Gets current time in Indian Standard Time (IST)
-   * @returns {string} Formatted IST time
+   * Updates price history for momentum calculation (Trifecta v3.0)
+   * @param {number} currentPrice - Current market price
    */
-  getISTTime() {
-    const now = new Date();
-    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
-    return istTime.toISOString().replace('T', ' ').substring(0, 19) + ' IST';
+  updatePriceHistory(currentPrice) {
+    const timestamp = Date.now();
+    this.priceHistory.push({ price: currentPrice, timestamp });
+
+    // Keep only last 5 minutes of data
+    if (this.priceHistory.length > this.maxPriceHistoryLength) {
+      this.priceHistory.shift();
+    }
   }
+
+  /**
+   * Calculates 5-minute momentum for Trifecta algorithm
+   * @returns {number} Momentum percentage (-negative for bearish, +positive for bullish)
+   */
+  calculateMomentum() {
+    if (this.priceHistory.length < 2) {
+      return 0; // Not enough data
+    }
+
+    const currentPrice = this.priceHistory[this.priceHistory.length - 1].price;
+    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+
+    // Find price closest to 5 minutes ago
+    let basePrice = this.priceHistory[0].price;
+    for (const point of this.priceHistory) {
+      if (point.timestamp >= fiveMinutesAgo) {
+        break;
+      }
+      basePrice = point.price;
+    }
+
+    // Calculate momentum as percentage change
+    return ((currentPrice - basePrice) / basePrice) * 100;
+  }
+
+  /**
+   * Logs Trifecta research signals for pattern analysis
+   * @param {Object} signalData - Trifecta signal data
+   */
+  logTrifectaResearchSignal(signalData) {
+    const istTime = getISTTime();
+    const { pressureCondition, liquidityCondition, momentumCondition } = signalData;
+
+    console.log(`🔬 TRIFECTA RESEARCH SIGNAL [${istTime}]`);
+    console.log(`   📊 Ask/Bid Ratio: ${signalData.askToBidRatio.toFixed(2)}x ${pressureCondition ? '✅' : '❌'} (>3.0x)`);
+    console.log(`   💰 Bid Volume: ${signalData.totalBidVolume.toFixed(2)} ${liquidityCondition ? '✅' : '❌'} (<100k)`);
+    console.log(`   📈 Momentum: ${signalData.momentum.toFixed(2)}% ${momentumCondition ? '✅' : '❌'} (≤-0.1%)`);
+    console.log(`   🧪 Partial Conditions: ${[pressureCondition, liquidityCondition, momentumCondition].filter(Boolean).length}/3`);
+
+    // Record for internal analysis
+    this.stats.partialTrifectaSignals = (this.stats.partialTrifectaSignals || 0) + 1;
+  }
+
+
 
   /**
    * Starts dedicated price tracking timer for active signals
@@ -622,15 +765,20 @@ class FlashCrashPredictor {
   }
 
   /**
-   * Triggers flash crash alert
+   * Triggers flash crash alert (SentryCoin v2.0 - Golden Signal)
    * @param {Object} alertData - Alert data
    */
   async triggerFlashCrashAlert(alertData) {
-    const istTime = this.getISTTime();
-    console.log(`🚨 FLASH CRASH CONDITIONS DETECTED! [${istTime}]`);
-    console.log(`   Ask/Bid Ratio: ${alertData.askToBidRatio.toFixed(2)}x (threshold: ${this.dangerRatio}x)`);
-    console.log(`   Total Bid Volume: ${alertData.totalBidVolume.toFixed(2)}`);
-    console.log(`   Total Ask Volume: ${alertData.totalAskVolume.toFixed(2)}`);
+    const istTime = getISTTime();
+    const signalType = alertData.signalType || 'CRITICAL';
+    const confidence = alertData.confidence || 'HIGH';
+
+    console.log(`🚨 ${signalType} FLASH CRASH SIGNAL DETECTED! [${istTime}]`);
+    console.log(`   🎯 Signal Type: ${signalType} (Confidence: ${confidence})`);
+    console.log(`   📊 Ask/Bid Ratio: ${alertData.askToBidRatio.toFixed(2)}x (Golden Threshold: 2.75x)`);
+    console.log(`   💰 Total Bid Volume: ${alertData.totalBidVolume.toFixed(2)} (Golden Threshold: <100k)`);
+    console.log(`   📈 Total Ask Volume: ${alertData.totalAskVolume.toFixed(2)}`);
+    console.log(`   ⚡ Golden Signal Criteria: ${alertData.askToBidRatio >= 2.75 ? '✅' : '❌'} Ratio + ${alertData.totalBidVolume < 100000 ? '✅' : '❌'} Low Liquidity`);
 
     // Record signal for validation tracking
     const signalId = this.validator.recordSignal(alertData);
@@ -652,7 +800,36 @@ class FlashCrashPredictor {
 
       // Start dedicated price tracking timer
       this.startPriceTracking();
+      console.log(`✅ ${signalType} alert sent successfully`);
+    } else {
+      console.log(`❌ ${signalType} alert failed to send`);
     }
+
+    return success;
+  }
+
+  /**
+   * Logs research signals for pattern analysis (no user alert)
+   * @param {Object} signalData - Signal data for research
+   */
+  logResearchSignal(signalData) {
+    const istTime = getISTTime();
+    const signalType = signalData.signalType || 'RESEARCH';
+
+    console.log(`🔬 ${signalType} SIGNAL LOGGED [${istTime}]`);
+    console.log(`   📊 Ask/Bid Ratio: ${signalData.askToBidRatio.toFixed(2)}x`);
+    console.log(`   💰 Total Bid Volume: ${signalData.totalBidVolume.toFixed(2)}`);
+    console.log(`   📈 Total Ask Volume: ${signalData.totalAskVolume.toFixed(2)}`);
+    console.log(`   🧪 Research Pattern: ${signalData.askToBidRatio >= 2.75 ? 'High Ratio' : 'Normal Ratio'} + ${signalData.totalBidVolume < 100000 ? 'Low Liquidity' : 'Normal Liquidity'}`);
+
+    // Record for internal analysis but don't send user alert
+    const signalId = this.validator.recordSignal({
+      ...signalData,
+      isResearchSignal: true
+    });
+    console.log(`🔬 Research signal logged: ${signalId}`);
+
+    this.stats.researchSignalsLogged = (this.stats.researchSignalsLogged || 0) + 1;
   }
 
   /**
@@ -681,7 +858,7 @@ class FlashCrashPredictor {
     setInterval(() => {
       const uptime = Math.floor((Date.now() - this.stats.startTime) / 1000);
       const messagesPerSecond = this.stats.messagesProcessed / uptime;
-      const istTime = this.getISTTime();
+      const istTime = getISTTime();
 
       let statusMsg = `📈 Stats [${istTime}]: ${this.stats.messagesProcessed} msgs | ${this.stats.alertsTriggered} alerts | ${messagesPerSecond.toFixed(2)} msg/s | Ratio: ${this.stats.lastRatio.toFixed(2)}x`;
 
@@ -739,33 +916,6 @@ class FlashCrashPredictor {
     const timeSinceLastAlert = Date.now() - this.lastAlertTime;
 
     return timeSinceLastAlert < cooldownMs;
-  }
-
-  /**
-   * Enters degraded mode when primary services fail
-   */
-  enterDegradedMode() {
-    this.degradedMode = true;
-    this.degradedModeStartTime = Date.now();
-    console.log('⚠️ Entering degraded mode - web server will continue running');
-    console.log('📊 Health checks and status endpoints remain available');
-  }
-
-  /**
-   * Checks if system can exit degraded mode
-   */
-  checkDegradedModeRecovery() {
-    if (!this.degradedMode) return;
-
-    // Try to recover every 5 minutes
-    const recoveryInterval = 5 * 60 * 1000;
-    if (Date.now() - this.degradedModeStartTime > recoveryInterval) {
-      console.log('🔄 Attempting to recover from degraded mode...');
-      this.start().catch(() => {
-        console.log('❌ Recovery attempt failed, staying in degraded mode');
-        this.degradedModeStartTime = Date.now(); // Reset timer
-      });
-    }
   }
 
   /**

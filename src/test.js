@@ -9,6 +9,7 @@
 
 import FlashCrashPredictor from './predictor.js';
 import FlashCrashAlerter from './alerter.js';
+import { validateEnvironmentVariables, getRiskLevel, formatVolume } from './utils.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -38,10 +39,10 @@ class PredictorTester {
    */
   async testEnvironmentVariables() {
     console.log('1. Testing Environment Variables...');
-    
+
     const required = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'];
-    const missing = required.filter(key => !process.env[key]);
-    
+    const missing = validateEnvironmentVariables(required);
+
     if (missing.length === 0) {
       this.addTestResult('Environment Variables', true, 'All required variables present');
     } else {
@@ -197,10 +198,10 @@ class PredictorTester {
         { input: 123456, expected: '123.46K' },
         { input: 123.45, expected: '123.45' }
       ];
-      
+
       let allPassed = true;
       for (const testCase of testCases) {
-        const result = alerter.formatVolume(testCase.input);
+        const result = formatVolume(testCase.input);
         if (result !== testCase.expected) {
           allPassed = false;
           break;
@@ -223,7 +224,7 @@ class PredictorTester {
       
       let riskTestsPassed = true;
       for (const test of riskTests) {
-        const result = alerter.getRiskLevel(test.ratio);
+        const result = getRiskLevel(test.ratio);
         if (result !== test.expected) {
           riskTestsPassed = false;
           break;
@@ -287,9 +288,12 @@ class PredictorTester {
 }
 
 // Run tests if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url.includes(process.argv[1]) || process.argv[1].includes('test.js')) {
   const tester = new PredictorTester();
-  tester.runAllTests().catch(console.error);
+  tester.runAllTests().catch(error => {
+    console.error('❌ Test execution failed:', error);
+    process.exit(1);
+  });
 }
 
 export default PredictorTester;

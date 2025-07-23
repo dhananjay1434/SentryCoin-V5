@@ -16,6 +16,7 @@
  */
 
 import FlashCrashPredictor from './predictor.js';
+import { validateEnvironmentVariables } from './utils.js';
 import express from 'express';
 import dotenv from 'dotenv';
 
@@ -25,8 +26,8 @@ dotenv.config();
 // Validate required environment variables
 function validateEnvironment() {
   const required = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'];
-  const missing = required.filter(key => !process.env[key]);
-  
+  const missing = validateEnvironmentVariables(required);
+
   if (missing.length > 0) {
     console.error('❌ Missing required environment variables:');
     missing.forEach(key => console.error(`   - ${key}`));

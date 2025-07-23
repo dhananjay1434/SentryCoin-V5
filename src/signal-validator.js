@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { toIST, getRiskLevel, generateSignalId, calculatePercentageChange } from './utils.js';
 
 /**
  * Signal Validator - Tracks and validates flash crash predictions
@@ -21,32 +22,34 @@ class SignalValidator {
    */
   recordSignal(signalData) {
     const signal = {
-      id: this.generateSignalId(),
+      id: generateSignalId(),
       timestamp: new Date().toISOString(),
-      istTime: this.toIST(new Date()),
+      istTime: toIST(new Date()),
       symbol: this.symbol,
       signalPrice: signalData.currentPrice,
       askBidRatio: signalData.askToBidRatio,
       bidVolume: signalData.totalBidVolume,
       askVolume: signalData.totalAskVolume,
-      riskLevel: this.getRiskLevel(signalData.askToBidRatio),
+      riskLevel: getRiskLevel(signalData.askToBidRatio),
       priceTracking: {
         t0: signalData.currentPrice, // Price at signal
         t10sec: null, // Price after 10 seconds
         t30sec: null, // Price after 30 seconds
         t1min: null,  // Price after 1 minute
-        t2min: null,  // Price after 2 minutes
         t3min: null,  // Price after 3 minutes
         t5min: null,  // Price after 5 minutes
+        t10min: null, // Price after 10 minutes
+        t15min: null, // Price after 15 minutes
       },
       validation: {
         isValidated: false,
         accuracy10sec: null,
         accuracy30sec: null,
         accuracy1min: null,
-        accuracy2min: null,
         accuracy3min: null,
         accuracy5min: null,
+        accuracy10min: null,
+        accuracy15min: null,
         maxDrop: null,
         predictionCorrect: null,
         fastestDrop: null, // How quickly the drop occurred
@@ -83,40 +86,46 @@ class SignalValidator {
     // Update price tracking based on time elapsed
     if (secondsElapsed >= 10 && signal.priceTracking.t10sec === null) {
       signal.priceTracking.t10sec = currentPrice;
-      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
+      const change = calculatePercentageChange(signal.priceTracking.t0, currentPrice);
       console.log(`⚡ 10sec update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
     }
 
     if (secondsElapsed >= 30 && signal.priceTracking.t30sec === null) {
       signal.priceTracking.t30sec = currentPrice;
-      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
+      const change = calculatePercentageChange(signal.priceTracking.t0, currentPrice);
       console.log(`📈 30sec update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
     }
 
     if (minutesElapsed >= 1 && signal.priceTracking.t1min === null) {
       signal.priceTracking.t1min = currentPrice;
-      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
+      const change = calculatePercentageChange(signal.priceTracking.t0, currentPrice);
       console.log(`📈 1min update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
-    }
-
-    if (minutesElapsed >= 2 && signal.priceTracking.t2min === null) {
-      signal.priceTracking.t2min = currentPrice;
-      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
-      console.log(`📈 2min update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
     }
 
     if (minutesElapsed >= 3 && signal.priceTracking.t3min === null) {
       signal.priceTracking.t3min = currentPrice;
-      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
+      const change = calculatePercentageChange(signal.priceTracking.t0, currentPrice);
       console.log(`📈 3min update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
     }
 
     if (minutesElapsed >= 5 && signal.priceTracking.t5min === null) {
       signal.priceTracking.t5min = currentPrice;
-      const change = ((currentPrice - signal.priceTracking.t0) / signal.priceTracking.t0) * 100;
+      const change = calculatePercentageChange(signal.priceTracking.t0, currentPrice);
       console.log(`📈 5min update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
+    }
 
-      // Perform final validation
+    if (minutesElapsed >= 10 && signal.priceTracking.t10min === null) {
+      signal.priceTracking.t10min = currentPrice;
+      const change = calculatePercentageChange(signal.priceTracking.t0, currentPrice);
+      console.log(`📈 10min update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
+    }
+
+    if (minutesElapsed >= 15 && signal.priceTracking.t15min === null) {
+      signal.priceTracking.t15min = currentPrice;
+      const change = calculatePercentageChange(signal.priceTracking.t0, currentPrice);
+      console.log(`📈 15min update for ${signalId}: $${currentPrice.toFixed(6)} (${change.toFixed(2)}%)`);
+
+      // Perform final validation after 15 minutes
       this.validateSignal(signalId);
     }
 
@@ -124,22 +133,23 @@ class SignalValidator {
   }
 
   /**
-   * Validates a signal's accuracy after 5 minutes
+   * Validates a signal's accuracy after 15 minutes
    * @param {string} signalId - Signal to validate
    */
   validateSignal(signalId) {
     const signal = this.signals.find(s => s.id === signalId);
     if (!signal || signal.validation.isValidated) return;
 
-    const { t0, t10sec, t30sec, t1min, t2min, t3min, t5min } = signal.priceTracking;
+    const { t0, t10sec, t30sec, t1min, t3min, t5min, t10min, t15min } = signal.priceTracking;
 
     // Calculate price changes (negative = drop, positive = rise)
-    const change10sec = t10sec ? ((t10sec - t0) / t0) * 100 : null;
-    const change30sec = t30sec ? ((t30sec - t0) / t0) * 100 : null;
-    const change1min = t1min ? ((t1min - t0) / t0) * 100 : null;
-    const change2min = t2min ? ((t2min - t0) / t0) * 100 : null;
-    const change3min = t3min ? ((t3min - t0) / t0) * 100 : null;
-    const change5min = t5min ? ((t5min - t0) / t0) * 100 : null;
+    const change10sec = t10sec ? calculatePercentageChange(t0, t10sec) : null;
+    const change30sec = t30sec ? calculatePercentageChange(t0, t30sec) : null;
+    const change1min = t1min ? calculatePercentageChange(t0, t1min) : null;
+    const change3min = t3min ? calculatePercentageChange(t0, t3min) : null;
+    const change5min = t5min ? calculatePercentageChange(t0, t5min) : null;
+    const change10min = t10min ? calculatePercentageChange(t0, t10min) : null;
+    const change15min = t15min ? calculatePercentageChange(t0, t15min) : null;
 
     // Find maximum drop and when it occurred
     const pricePoints = [
@@ -147,9 +157,10 @@ class SignalValidator {
       { time: '10sec', price: t10sec, change: change10sec },
       { time: '30sec', price: t30sec, change: change30sec },
       { time: '1min', price: t1min, change: change1min },
-      { time: '2min', price: t2min, change: change2min },
       { time: '3min', price: t3min, change: change3min },
-      { time: '5min', price: t5min, change: change5min }
+      { time: '5min', price: t5min, change: change5min },
+      { time: '10min', price: t10min, change: change10min },
+      { time: '15min', price: t15min, change: change15min }
     ].filter(p => p.price !== null);
 
     const minPoint = pricePoints.reduce((min, point) =>
@@ -170,9 +181,10 @@ class SignalValidator {
       accuracy10sec: change10sec,
       accuracy30sec: change30sec,
       accuracy1min: change1min,
-      accuracy2min: change2min,
       accuracy3min: change3min,
       accuracy5min: change5min,
+      accuracy10min: change10min,
+      accuracy15min: change15min,
       maxDrop: maxDrop,
       predictionCorrect: predictionCorrect,
       fastestDrop: fastestDrop ? fastestDrop.time : null,
@@ -198,7 +210,7 @@ class SignalValidator {
     if (fastestDrop) {
       console.log(`   Fastest drop: >1% within ${fastestDrop.time}`);
     }
-    console.log(`   Timeline: 10s(${change10sec?.toFixed(2) || 'N/A'}%) → 30s(${change30sec?.toFixed(2) || 'N/A'}%) → 1m(${change1min?.toFixed(2) || 'N/A'}%) → 2m(${change2min?.toFixed(2) || 'N/A'}%) → 3m(${change3min?.toFixed(2) || 'N/A'}%) → 5m(${change5min?.toFixed(2) || 'N/A'}%)`);
+    console.log(`   Timeline: 10s(${change10sec?.toFixed(2) || 'N/A'}%) → 30s(${change30sec?.toFixed(2) || 'N/A'}%) → 1m(${change1min?.toFixed(2) || 'N/A'}%) → 3m(${change3min?.toFixed(2) || 'N/A'}%) → 5m(${change5min?.toFixed(2) || 'N/A'}%) → 10m(${change10min?.toFixed(2) || 'N/A'}%) → 15m(${change15min?.toFixed(2) || 'N/A'}%)`);
 
     this.saveData();
     this.generateReport();
@@ -235,7 +247,7 @@ class SignalValidator {
       correctPredictions: correctPredictions,
       accuracy: accuracy,
       generatedAt: new Date().toISOString(),
-      istTime: this.toIST(new Date()),
+      istTime: toIST(new Date()),
       breakdown: {
         byRiskLevel: this.getAccuracyByRiskLevel(),
         averageMaxDrop: this.getAverageMaxDrop(),
@@ -296,24 +308,7 @@ class SignalValidator {
     };
   }
 
-  /**
-   * Utility functions
-   */
-  generateSignalId() {
-    return `SIG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
 
-  toIST(date) {
-    const istTime = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
-    return istTime.toISOString().replace('T', ' ').substring(0, 19) + ' IST';
-  }
-
-  getRiskLevel(ratio) {
-    if (ratio >= 5.0) return '🔴 EXTREME';
-    if (ratio >= 4.0) return '🟠 VERY HIGH';
-    if (ratio >= 3.0) return '🟡 HIGH';
-    return '🟢 MODERATE';
-  }
 
   loadExistingData() {
     try {

@@ -10,7 +10,7 @@ import path from 'path';
 
 class ValidationReportViewer {
   constructor() {
-    this.symbol = process.argv[2] || 'SPKUSDT';
+    this.symbol = process.argv[2] || process.env.SYMBOL || 'BTCUSDT';
   }
 
   async viewReport() {
@@ -124,7 +124,7 @@ class ValidationReportViewer {
       if (signal && signal.validation.isValidated) {
         const v = signal.validation;
         console.log(`   Immediate Reaction (10s): ${v.accuracy10sec?.toFixed(2) || 'N/A'}%`);
-        console.log(`   Timeline: 10s(${v.accuracy10sec?.toFixed(2) || 'N/A'}%) → 30s(${v.accuracy30sec?.toFixed(2) || 'N/A'}%) → 1m(${v.accuracy1min?.toFixed(2) || 'N/A'}%) → 2m(${v.accuracy2min?.toFixed(2) || 'N/A'}%) → 3m(${v.accuracy3min?.toFixed(2) || 'N/A'}%) → 5m(${v.accuracy5min?.toFixed(2) || 'N/A'}%)`);
+        console.log(`   Timeline: 10s(${v.accuracy10sec?.toFixed(2) || 'N/A'}%) → 30s(${v.accuracy30sec?.toFixed(2) || 'N/A'}%) → 1m(${v.accuracy1min?.toFixed(2) || 'N/A'}%) → 3m(${v.accuracy3min?.toFixed(2) || 'N/A'}%) → 5m(${v.accuracy5min?.toFixed(2) || 'N/A'}%) → 10m(${v.accuracy10min?.toFixed(2) || 'N/A'}%) → 15m(${v.accuracy15min?.toFixed(2) || 'N/A'}%)`);
         if (v.fastestDrop) {
           console.log(`   Fastest Drop: >1% within ${v.fastestDrop}`);
         }
@@ -171,8 +171,8 @@ class ValidationReportViewer {
     console.log('Usage: node view-validation-report.js [SYMBOL]');
     console.log('');
     console.log('Examples:');
-    console.log('  node view-validation-report.js SPKUSDT');
     console.log('  node view-validation-report.js BTCUSDT');
+    console.log('  node view-validation-report.js SOLUSDT');
     console.log('');
   }
 }

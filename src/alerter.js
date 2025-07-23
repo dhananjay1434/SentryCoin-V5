@@ -1,4 +1,5 @@
 import TelegramBot from 'node-telegram-bot-api';
+import { getISTTime, getRiskLevel, formatVolume, parseIntEnv } from './utils.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -8,7 +9,7 @@ class FlashCrashAlerter {
     this.bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
     this.chatId = process.env.TELEGRAM_CHAT_ID;
     this.lastAlertTime = 0;
-    this.cooldownMs = (parseInt(process.env.COOLDOWN_MINUTES) || 5) * 60 * 1000;
+    this.cooldownMs = parseIntEnv('COOLDOWN_MINUTES', 5) * 60 * 1000;
   }
 
   /**
@@ -77,68 +78,80 @@ class FlashCrashAlerter {
       askToBidRatio,
       totalBidVolume,
       totalAskVolume,
-      currentPrice
+      currentPrice,
+      momentum,
+      algorithmVersion
     } = data;
 
-    // Convert to Indian Standard Time (IST = UTC + 5:30)
-    const now = new Date();
-    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
-    const timestamp = istTime.toISOString().replace('T', ' ').substring(0, 19) + ' IST';
-    const riskLevel = this.getRiskLevel(askToBidRatio);
+    const timestamp = getISTTime();
+    const riskLevel = getRiskLevel(askToBidRatio);
+    const signalType = data.signalType || 'CRITICAL';
+    const confidence = data.confidence || 'HIGH';
+    const version = algorithmVersion || 'v2.0';
 
-    return `🚨 *SENTRYCOIN FLASH CRASH WARNING* 🚨
+    // Trifecta Algorithm (v3.0) formatting
+    if (signalType === 'TRIFECTA' && version === 'v3.0') {
+      const pressureCondition = askToBidRatio > 3.0;
+      const liquidityCondition = totalBidVolume < 100000;
+      const momentumCondition = momentum <= -0.1;
+
+      return `🚨 *SENTRYCOIN v3.0 TRIFECTA ALERT* 🚨
 
 📊 *Asset:* ${symbol}
 💰 *Current Price:* $${currentPrice.toFixed(6)}
 ⚠️ *Risk Level:* ${riskLevel}
+🎯 *Signal Type:* ${signalType} (${confidence} Confidence)
 
-📈 *Order Book Analysis:*
-• Ask/Bid Ratio: *${askToBidRatio.toFixed(2)}x*
-• Total Bid Volume: ${this.formatVolume(totalBidVolume)}
-• Total Ask Volume: ${this.formatVolume(totalAskVolume)}
+🔥 *TRIFECTA CONDITIONS MET:*
+• **Pressure:** ${askToBidRatio.toFixed(2)}x ${pressureCondition ? '✅' : '❌'} (>3.0x)
+• **Liquidity:** ${formatVolume(totalBidVolume)} ${liquidityCondition ? '✅' : '❌'} (<100k)
+• **Momentum:** ${momentum.toFixed(2)}% ${momentumCondition ? '✅' : '❌'} (≤-0.1%)
 
-🎯 *Signal:* Severe order book imbalance detected
-⚡ *Implication:* High probability of imminent sharp drop
-🛡️ *Action:* Thin buy-side support - monitor closely
+📈 *Market Analysis:*
+• Total Ask Volume: ${formatVolume(totalAskVolume)}
+• Sell Pressure: EXTREME
+• Buy Support: FRAGILE
+• Market Trend: BEARISH
+
+🎯 *Analysis:* PERFECT STORM - All three crash conditions aligned
+⚡ *Implication:* VERY HIGH probability of imminent flash crash
+🛡️ *Action:* IMMEDIATE attention required - Consider protective measures
 
 ⏰ *Time:* ${timestamp}
-🤖 *Engine:* SentryCoin Predictor v1.0`;
-  }
-
-  /**
-   * Determines risk level based on ask/bid ratio
-   * @param {number} ratio - Ask to bid ratio
-   * @returns {string} Risk level description
-   */
-  getRiskLevel(ratio) {
-    if (ratio >= 5.0) return '🔴 EXTREME';
-    if (ratio >= 4.0) return '🟠 VERY HIGH';
-    if (ratio >= 3.0) return '🟡 HIGH';
-    return '🟢 MODERATE';
-  }
-
-  /**
-   * Formats volume numbers for display
-   * @param {number} volume - Volume to format
-   * @returns {string} Formatted volume string
-   */
-  formatVolume(volume) {
-    if (volume >= 1000000) {
-      return `${(volume / 1000000).toFixed(2)}M`;
-    } else if (volume >= 1000) {
-      return `${(volume / 1000).toFixed(2)}K`;
+🤖 *Engine:* SentryCoin Predictor v3.0 (Trifecta Algorithm)`;
     }
-    return volume.toFixed(2);
+
+    // Golden Signal Algorithm (v2.0) formatting - fallback
+    const isGoldenSignal = askToBidRatio >= 2.75 && totalBidVolume < 100000;
+
+    return `🚨 *SENTRYCOIN v2.0 ${signalType} ALERT* 🚨
+
+📊 *Asset:* ${symbol}
+💰 *Current Price:* $${currentPrice.toFixed(6)}
+⚠️ *Risk Level:* ${riskLevel}
+🎯 *Signal Type:* ${signalType} (${confidence} Confidence)
+
+📈 *Golden Signal Analysis:*
+• Ask/Bid Ratio: *${askToBidRatio.toFixed(2)}x* ${askToBidRatio >= 2.75 ? '✅' : '❌'} (Threshold: ≥2.75x)
+• Total Bid Volume: ${formatVolume(totalBidVolume)} ${totalBidVolume < 100000 ? '✅' : '❌'} (Threshold: <100k)
+• Total Ask Volume: ${formatVolume(totalAskVolume)}
+• Golden Signal: ${isGoldenSignal ? '🟢 CONFIRMED' : '🟡 PARTIAL'}
+
+🎯 *Analysis:* ${isGoldenSignal ? 'CRITICAL liquidity crisis detected' : 'Market stress indicators present'}
+⚡ *Implication:* ${isGoldenSignal ? 'HIGH probability of imminent flash crash' : 'Elevated crash risk - monitor closely'}
+🛡️ *Action:* ${isGoldenSignal ? 'IMMEDIATE attention required' : 'Increased vigilance recommended'}
+
+⏰ *Time:* ${timestamp}
+🤖 *Engine:* SentryCoin Predictor v2.0 (Golden Signal Algorithm)`;
   }
+
+
 
   /**
    * Sends a test alert to verify Telegram configuration
    */
   async sendTestAlert() {
-    // Convert to Indian Standard Time (IST = UTC + 5:30)
-    const now = new Date();
-    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
-    const timestamp = istTime.toISOString().replace('T', ' ').substring(0, 19) + ' IST';
+    const timestamp = getISTTime();
 
     const testMessage = `🧪 *SentryCoin Test Alert*
 
