@@ -32,8 +32,14 @@ class FlashCrashPredictor {
       messagesProcessed: 0,
       alertsTriggered: 0,
       lastRatio: 0,
-      startTime: Date.now()
+      startTime: Date.now(),
+      connectionErrors: 0,
+      lastSuccessfulConnection: null
     };
+
+    // Graceful degradation mode
+    this.degradedMode = false;
+    this.degradedModeStartTime = null;
     
     console.log(`🛡️ Flash Crash Predictor initialized for ${this.symbol}`);
     console.log(`⚠️ Danger ratio threshold: ${this.dangerRatio}x`);
@@ -50,24 +56,42 @@ class FlashCrashPredictor {
       // Test Telegram connection (non-blocking)
       try {
         await this.alerter.sendTestAlert();
+        console.log('✅ Telegram connection verified');
       } catch (telegramError) {
         console.log('⚠️ Telegram test failed (will retry later):', telegramError.message);
       }
 
       // Initialize order book from REST API with retry
-      await this.initializeOrderBookWithRetry();
+      try {
+        await this.initializeOrderBookWithRetry();
+        console.log('✅ Order book initialization completed');
+      } catch (orderBookError) {
+        console.log('⚠️ Order book initialization failed, entering degraded mode');
+        this.enterDegradedMode();
+      }
 
       // Start WebSocket connection
-      await this.connectWebSocket();
+      try {
+        await this.connectWebSocket();
+        console.log('✅ WebSocket connection initiated');
+      } catch (wsError) {
+        console.log('⚠️ WebSocket connection failed, will retry automatically');
+        this.stats.connectionErrors++;
+      }
 
       // Start statistics reporting
       this.startStatsReporting();
 
       console.log('✅ Flash Crash Predictor is now running');
 
+      if (this.degradedMode) {
+        console.log('⚠️ Running in degraded mode - limited functionality');
+      }
+
     } catch (error) {
       console.error('❌ Failed to start predictor:', error.message);
       console.log('🔄 Will continue running web server...');
+      this.enterDegradedMode();
       // Don't exit - keep web server running
     }
   }
@@ -78,38 +102,67 @@ class FlashCrashPredictor {
   async initializeOrderBook() {
     console.log('📊 Initializing order book snapshot...');
 
-    try {
-      const response = await axios.get(`https://api.binance.com/api/v3/depth`, {
-        params: {
-          symbol: this.symbol,
-          limit: this.orderBookDepth * 2 // Get extra depth for safety
-        },
-        timeout: 10000 // 10 second timeout
-      });
+    // Try multiple API endpoints in order of preference
+    const apiEndpoints = [
+      'https://api.binance.com/api/v3/depth',
+      'https://api1.binance.com/api/v3/depth',
+      'https://api2.binance.com/api/v3/depth',
+      'https://api3.binance.com/api/v3/depth'
+    ];
 
-      const { bids, asks, lastUpdateId } = response.data;
+    let lastError;
 
-      // Clear existing order book
-      this.orderBook.bids.clear();
-      this.orderBook.asks.clear();
+    for (const endpoint of apiEndpoints) {
+      try {
+        console.log(`🔄 Trying endpoint: ${endpoint}`);
 
-      // Populate bids (buy orders)
-      bids.forEach(([price, quantity]) => {
-        this.orderBook.bids.set(parseFloat(price), parseFloat(quantity));
-      });
+        const response = await axios.get(endpoint, {
+          params: {
+            symbol: this.symbol,
+            limit: this.orderBookDepth * 2 // Get extra depth for safety
+          },
+          timeout: 15000, // Increased timeout
+          headers: {
+            'User-Agent': 'SentryCoin-FlashCrash-Predictor/1.0.0'
+          }
+        });
 
-      // Populate asks (sell orders)
-      asks.forEach(([price, quantity]) => {
-        this.orderBook.asks.set(parseFloat(price), parseFloat(quantity));
-      });
+        const { bids, asks, lastUpdateId } = response.data;
 
-      this.orderBook.lastUpdateId = lastUpdateId;
+        // Clear existing order book
+        this.orderBook.bids.clear();
+        this.orderBook.asks.clear();
 
-      console.log(`✅ Order book initialized with ${bids.length} bids and ${asks.length} asks`);
+        // Populate bids (buy orders)
+        bids.forEach(([price, quantity]) => {
+          this.orderBook.bids.set(parseFloat(price), parseFloat(quantity));
+        });
 
-    } catch (error) {
-      throw new Error(`Failed to initialize order book: ${error.message}`);
+        // Populate asks (sell orders)
+        asks.forEach(([price, quantity]) => {
+          this.orderBook.asks.set(parseFloat(price), parseFloat(quantity));
+        });
+
+        this.orderBook.lastUpdateId = lastUpdateId;
+
+        console.log(`✅ Order book initialized with ${bids.length} bids and ${asks.length} asks using ${endpoint}`);
+        return; // Success, exit the loop
+
+      } catch (error) {
+        lastError = error;
+        console.log(`❌ Failed with ${endpoint}: ${error.message} (Status: ${error.response?.status})`);
+
+        // If it's a 451 error, log specific guidance
+        if (error.response?.status === 451) {
+          console.log('⚠️ HTTP 451: This region may be blocked by Binance for legal/compliance reasons');
+        }
+
+        continue; // Try next endpoint
+      }
     }
+
+    // If all endpoints failed
+    throw new Error(`Failed to initialize order book from all endpoints. Last error: ${lastError.message}`);
   }
 
   /**
@@ -145,28 +198,46 @@ class FlashCrashPredictor {
    * Connects to Binance WebSocket depth stream
    */
   async connectWebSocket() {
-    const wsUrl = `wss://stream.binance.com:9443/ws/${this.symbol.toLowerCase()}@depth`;
-    
-    console.log(`🔌 Connecting to WebSocket: ${wsUrl}`);
-    
-    this.ws = new WebSocket(wsUrl);
-    
+    // Try multiple WebSocket endpoints
+    const wsEndpoints = [
+      `wss://stream.binance.com:9443/ws/${this.symbol.toLowerCase()}@depth`,
+      `wss://stream.binance.com:443/ws/${this.symbol.toLowerCase()}@depth`,
+      `wss://stream1.binance.com:9443/ws/${this.symbol.toLowerCase()}@depth`,
+      `wss://stream2.binance.com:9443/ws/${this.symbol.toLowerCase()}@depth`
+    ];
+
+    const wsUrl = wsEndpoints[this.reconnectAttempts % wsEndpoints.length];
+    console.log(`🔌 Connecting to WebSocket: ${wsUrl} (attempt ${this.reconnectAttempts + 1})`);
+
+    this.ws = new WebSocket(wsUrl, {
+      headers: {
+        'User-Agent': 'SentryCoin-FlashCrash-Predictor/1.0.0'
+      }
+    });
+
     this.ws.on('open', () => {
-      console.log('✅ WebSocket connected');
+      console.log('✅ WebSocket connected successfully');
       this.isConnected = true;
       this.reconnectAttempts = 0;
     });
-    
+
     this.ws.on('message', (data) => {
-      this.processDepthUpdate(JSON.parse(data));
+      try {
+        this.processDepthUpdate(JSON.parse(data));
+      } catch (error) {
+        console.error('❌ Error processing WebSocket message:', error.message);
+      }
     });
-    
+
     this.ws.on('error', (error) => {
       console.error('❌ WebSocket error:', error.message);
+      if (error.message.includes('451')) {
+        console.log('⚠️ WebSocket blocked (451) - trying alternative endpoint on reconnect');
+      }
     });
-    
-    this.ws.on('close', () => {
-      console.log('🔌 WebSocket disconnected');
+
+    this.ws.on('close', (code, reason) => {
+      console.log(`🔌 WebSocket disconnected (Code: ${code}, Reason: ${reason})`);
       this.isConnected = false;
       this.handleReconnection();
     });
@@ -224,8 +295,8 @@ class FlashCrashPredictor {
     const topAsks = this.getTopOrderBookLevels(this.orderBook.asks, this.orderBookDepth, 'asc');
     
     // Calculate total volumes
-    const totalBidVolume = topBids.reduce((sum, [price, quantity]) => sum + quantity, 0);
-    const totalAskVolume = topAsks.reduce((sum, [price, quantity]) => sum + quantity, 0);
+    const totalBidVolume = topBids.reduce((sum, [, quantity]) => sum + quantity, 0);
+    const totalAskVolume = topAsks.reduce((sum, [, quantity]) => sum + quantity, 0);
     
     // Calculate the critical ratio
     const askToBidRatio = totalBidVolume > 0 ? totalAskVolume / totalBidVolume : 0;
@@ -322,9 +393,76 @@ class FlashCrashPredictor {
     setInterval(() => {
       const uptime = Math.floor((Date.now() - this.stats.startTime) / 1000);
       const messagesPerSecond = this.stats.messagesProcessed / uptime;
-      
-      console.log(`📈 Stats: ${this.stats.messagesProcessed} msgs | ${this.stats.alertsTriggered} alerts | ${messagesPerSecond.toFixed(2)} msg/s | Ratio: ${this.stats.lastRatio.toFixed(2)}x`);
+
+      let statusMsg = `📈 Stats: ${this.stats.messagesProcessed} msgs | ${this.stats.alertsTriggered} alerts | ${messagesPerSecond.toFixed(2)} msg/s | Ratio: ${this.stats.lastRatio.toFixed(2)}x`;
+
+      if (this.degradedMode) {
+        statusMsg += ' | ⚠️ DEGRADED MODE';
+      }
+
+      if (this.stats.connectionErrors > 0) {
+        statusMsg += ` | Errors: ${this.stats.connectionErrors}`;
+      }
+
+      console.log(statusMsg);
+
+      // Check for degraded mode recovery
+      this.checkDegradedModeRecovery();
     }, 60000); // Every minute
+  }
+
+  /**
+   * Enters degraded mode when primary services fail
+   */
+  enterDegradedMode() {
+    this.degradedMode = true;
+    this.degradedModeStartTime = Date.now();
+    console.log('⚠️ Entering degraded mode - web server will continue running');
+    console.log('📊 Health checks and status endpoints remain available');
+  }
+
+  /**
+   * Checks if system can exit degraded mode
+   */
+  checkDegradedModeRecovery() {
+    if (!this.degradedMode) return;
+
+    // Try to recover every 5 minutes
+    const recoveryInterval = 5 * 60 * 1000;
+    if (Date.now() - this.degradedModeStartTime > recoveryInterval) {
+      console.log('🔄 Attempting to recover from degraded mode...');
+      this.start().catch(() => {
+        console.log('❌ Recovery attempt failed, staying in degraded mode');
+        this.degradedModeStartTime = Date.now(); // Reset timer
+      });
+    }
+  }
+
+  /**
+   * Enters degraded mode when primary services fail
+   */
+  enterDegradedMode() {
+    this.degradedMode = true;
+    this.degradedModeStartTime = Date.now();
+    console.log('⚠️ Entering degraded mode - web server will continue running');
+    console.log('📊 Health checks and status endpoints remain available');
+  }
+
+  /**
+   * Checks if system can exit degraded mode
+   */
+  checkDegradedModeRecovery() {
+    if (!this.degradedMode) return;
+
+    // Try to recover every 5 minutes
+    const recoveryInterval = 5 * 60 * 1000;
+    if (Date.now() - this.degradedModeStartTime > recoveryInterval) {
+      console.log('🔄 Attempting to recover from degraded mode...');
+      this.start().catch(() => {
+        console.log('❌ Recovery attempt failed, staying in degraded mode');
+        this.degradedModeStartTime = Date.now(); // Reset timer
+      });
+    }
   }
 
   /**
