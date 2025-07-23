@@ -17,7 +17,9 @@ services:
       - key: SYMBOL
         value: SOLUSDT
       - key: EXCHANGE
-        value: coinbase
+        value: binance
+      - key: NODE_ENV
+        value: production
       - key: DANGER_RATIO
         value: "2.5"
       - key: ORDER_BOOK_DEPTH

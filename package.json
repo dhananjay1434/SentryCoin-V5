@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
+    "start:multi": "node src/multi-symbol-predictor.js",
     "dev": "node --watch src/index.js",
+    "dev:multi": "node --watch src/multi-symbol-predictor.js",
     "test": "node src/test.js",
     "backtest": "node run-backtest.js",
     "backtest:fetch": "node run-backtest.js fetch",
