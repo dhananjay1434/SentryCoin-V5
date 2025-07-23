@@ -28,5 +28,3 @@ services:
         value: "5"
       - key: LOG_LEVEL
         value: info
-      - key: NODE_ENV
-        value: production
