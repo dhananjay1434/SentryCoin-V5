@@ -1,207 +1,224 @@
-# SentryCoin MVP
+# 🛡️ SentryCoin Flash Crash Predictor
 
-An advanced cryptocurrency price alert system with time-based percentage drops and velocity change detection.
+**A sophisticated quantitative engine that analyzes real-time cryptocurrency market microstructure data to predict and alert on potential flash crashes.**
 
-## 🎯 Core Concept
+## 🎯 Core Theory
 
-SentryCoin is an intelligent crypto monitoring application that supports three types of alerts:
+### The Flash Crash Heuristic
 
-1. **Price Threshold Alerts**: Traditional "notify when BTC goes above $50,000"
-2. **Time-Window Percentage Drops**: "Alert me if SOL drops 4% within any 2-hour period"
-3. **Sudden Velocity Changes**: "Alert me if BTC has a sudden 2% drop in the last 5 minutes"
+Flash crashes are often preceded by **liquidity crises** in the order book. When the volume of sell orders (asks) dramatically outweighs the volume of buy orders (bids), even small market sell orders can cause the price to plummet through thin buy-side support.
 
-## ⚠️ MVP Trade-offs
+**Key Insight**: By monitoring the ask/bid volume ratio in real-time, we can detect these imbalances before they trigger cascading liquidations.
 
-**⚠️ CRITICAL: Data Loss on Restart**: This MVP stores ALL data in server memory:
-- **Active Alerts**: All user-defined alerts are lost on restart
-- **Price History**: All historical price data for calculations is lost on restart
-- **No Persistence**: No database or file storage is used
+### Algorithm Overview
 
-This is an intentional design choice for MVP simplicity. **All alerts and price history will be completely lost if the server restarts for any reason.**
-
-**Single Alert per Target**: Each alert is "one-shot" - it triggers once and is then removed.
-
-## 🏗️ Architecture
-
-- **Frontend**: Vite + React application with dynamic alert forms and Web Push API integration
-- **Backend**: Single Node.js process with sophisticated alert engine and price history management
-- **Price Data**: Real-time updates via Binance WebSocket with in-memory historical storage
-- **Alert Engine**: Advanced logic for percentage calculations and time-window analysis
-- **Notifications**: Browser push notifications (no external services required)
-
-## 🚨 Alert Types Supported
-
-### 1. **Price Threshold Alerts**
-Traditional price crossing alerts:
-- "Notify when BTC goes above $50,000"
-- "Alert when ETH drops below $2,000"
-
-### 2. **Time-Window Percentage Drops**
-Percentage change over specified time periods:
-- "Alert if SOL drops 4% within any 2-hour period"
-- "Notify if DOGE falls 10% in 6 hours"
-
-### 3. **Sudden Velocity Changes**
-Rapid price movements in short timeframes:
-- "Alert if BTC drops 2% in the last 5 minutes"
-- "Notify if ETH pumps 3% in 10 minutes"
+```
+1. Connect to Binance WebSocket depth stream
+2. Maintain real-time order book (top 50 levels)
+3. Calculate: askToBidRatio = totalAskVolume / totalBidVolume
+4. Alert when: askToBidRatio > DANGER_RATIO (default: 3.0x)
+5. Implement cooldown to prevent spam
+```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ 
-- Modern browser with push notification support
+- Node.js 18+
+- Telegram account
+- Telegram bot token
 
-### Local Development
+### 1. Setup Telegram Bot
 
-1. **Clone and setup**:
+1. Message [@BotFather](https://t.me/BotFather) on Telegram
+2. Create a new bot: `/newbot`
+3. Save your bot token
+4. Get your chat ID by messaging [@userinfobot](https://t.me/userinfobot)
+
+### 2. Installation
+
 ```bash
-git clone <repository-url>
-cd PumpAlarm
-```
-
-2. **Setup Backend**:
-```bash
-cd backend
+git clone https://github.com/dhananjay1434/SentryCoin.git
+cd SentryCoin
 npm install
 ```
 
-3. **Generate VAPID Keys** (required for push notifications):
+### 3. Configuration
+
 ```bash
-npx web-push generate-vapid-keys
+cp .env.example .env
+# Edit .env with your Telegram credentials
 ```
 
-4. **Configure Environment**:
-Create `backend/.env`:
-```
-VAPID_PUBLIC_KEY=your_public_key_here
-VAPID_PRIVATE_KEY=your_private_key_here
-VAPID_EMAIL=your_email@example.com
+Required environment variables:
+```env
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
 ```
 
-5. **Setup Frontend**:
-```bash
-cd ../frontend
-npm install
-npm run build
-```
+### 4. Run Locally
 
-6. **Start the Application**:
 ```bash
-cd ../backend
 npm start
 ```
 
-7. **Open Browser**:
-Navigate to `http://localhost:3000` and allow push notifications when prompted.
+## 📊 Configuration Parameters
 
-## 📁 Project Structure
+### Core Settings
 
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `SYMBOL` | BTCUSDT | Trading pair to monitor |
+| `DANGER_RATIO` | 3.0 | Ask/bid ratio threshold for alerts |
+| `ORDER_BOOK_DEPTH` | 50 | Number of order book levels to analyze |
+| `COOLDOWN_MINUTES` | 5 | Minutes between alerts |
+
+### Tuning the Algorithm
+
+**Conservative (fewer false positives):**
+```env
+DANGER_RATIO=4.0
+COOLDOWN_MINUTES=10
 ```
-/SentryCoin
-├── /frontend           # Vite + React App
-│   ├── public/
-│   │   └── service-worker.js  # Push notification handler
-│   ├── src/
-│   │   ├── App.jsx            # Dynamic alert forms
-│   │   └── main.jsx
-│   ├── index.html
-│   └── package.json
-├── /backend            # Node.js Server + Advanced Alert Engine
-│   ├── src/
-│   │   ├── alert-engine.js    # Core alert checking logic
-│   │   ├── price-monitor.js   # WebSocket + price history
-│   │   └── server.js          # Express server
-│   ├── package.json
-│   └── .env                   # VAPID keys
-├── .gitignore
-├── README.md
-└── render.yaml         # Deployment config
+
+**Aggressive (more sensitive):**
+```env
+DANGER_RATIO=2.5
+COOLDOWN_MINUTES=3
 ```
 
 ## 🔧 How It Works
 
-1. **User Sets Alert**: Frontend sends complex alert data + push subscription to backend
-2. **Price Monitoring**: Backend connects to Binance WebSocket and maintains price history
-3. **History Management**: Rolling in-memory cache of recent prices for time-based calculations
-4. **Alert Engine**: Sophisticated checking logic for all three alert types
-5. **Notification**: When condition is met, push notification is sent and alert is removed
+### 1. Order Book Initialization
+- Fetches current order book snapshot via REST API
+- Establishes baseline state with top 50 bid/ask levels
 
-## 💾 In-Memory Data Structure
+### 2. Real-Time Processing
+- Connects to Binance WebSocket depth stream
+- Processes order book updates in real-time
+- Maintains synchronized local order book state
 
-### Active Alerts Array
+### 3. Flash Crash Detection
 ```javascript
-[
-  {
-    id: "1678886400000",
-    coin: "BTCUSDT",
-    alertType: "THRESHOLD",
-    params: { condition: "ABOVE", price: 50000 },
-    pushSubscription: { ... }
-  },
-  {
-    id: "1678886401000",
-    coin: "SOLUSDT",
-    alertType: "PERCENT_DROP",
-    params: { percentage: 4, windowHours: 2 },
-    pushSubscription: { ... }
-  },
-  {
-    id: "1678886402000",
-    coin: "BTCUSDT",
-    alertType: "VELOCITY_DROP",
-    params: { percentage: 2, windowMinutes: 5 },
-    pushSubscription: { ... }
-  }
-]
-```
+// Core algorithm
+const totalBidVolume = sumTopBids(50);
+const totalAskVolume = sumTopAsks(50);
+const askToBidRatio = totalAskVolume / totalBidVolume;
 
-### Price History Dictionary
-```javascript
-{
-  "BTCUSDT": [
-    { timestamp: 1678886400000, price: 60000.50 },
-    { timestamp: 1678886460000, price: 60005.10 },
-    { timestamp: 1678886520000, price: 59800.25 }
-  ],
-  "SOLUSDT": [
-    { timestamp: 1678886400000, price: 150.75 },
-    { timestamp: 1678886460000, price: 148.20 }
-  ]
+if (askToBidRatio > DANGER_RATIO && !isOnCooldown) {
+    triggerFlashCrashAlert();
 }
 ```
 
-## 🌐 Deployment
+### 4. Alert Delivery
+- Sends formatted alert to Telegram
+- Includes risk level, volumes, and actionable insights
+- Implements cooldown to prevent spam
 
-Deploy to Render.com using the included `render.yaml`:
+## 📱 Alert Format
 
-1. Connect your GitHub repository to Render
-2. Set environment variables in Render dashboard:
-   - `VAPID_PUBLIC_KEY`
-   - `VAPID_PRIVATE_KEY` 
-   - `VAPID_EMAIL`
-3. Deploy as a Web Service
+```
+🚨 SENTRYCOIN FLASH CRASH WARNING 🚨
 
-## 🛣️ Next Steps (Post-MVP)
+📊 Asset: BTCUSDT
+💰 Current Price: $43,250.00
+⚠️ Risk Level: 🔴 EXTREME
 
-- **Persistence**: Add PostgreSQL database to survive server restarts
-- **User Accounts**: Authentication and personal alert management
-- **Multiple Channels**: Telegram, SMS, email notifications
-- **Advanced Features**:
-  - Portfolio-wide alerts
-  - Technical indicator alerts (RSI, MACD)
-  - Social sentiment integration
-  - Alert backtesting
-- **Alert History**: Track triggered alerts and performance analytics
-- **Mobile App**: Native iOS/Android applications
-- **API Rate Limiting**: Production-ready request throttling
+📈 Order Book Analysis:
+• Ask/Bid Ratio: 4.2x
+• Total Bid Volume: 125.50K
+• Total Ask Volume: 527.30K
 
-## 🔒 Security Notes
+🎯 Signal: Severe order book imbalance detected
+⚡ Implication: High probability of imminent sharp drop
+🛡️ Action: Thin buy-side support - monitor closely
 
-- VAPID keys should be kept secure
-- This MVP has no authentication - anyone can set alerts
-- Production deployment should add rate limiting and input validation
+⏰ Time: 2024-01-15T14:30:25.123Z
+🤖 Engine: SentryCoin Predictor v1.0
+```
+
+## 🚀 Deploy to Render.com
+
+### 1. Push to GitHub
+```bash
+git add .
+git commit -m "SentryCoin Flash Crash Predictor"
+git push origin main
+```
+
+### 2. Deploy on Render
+1. Go to [render.com](https://render.com)
+2. Connect your GitHub repository
+3. Choose "Background Worker"
+4. Service auto-configures from `render.yaml`
+
+### 3. Set Environment Variables
+In Render dashboard:
+- `TELEGRAM_BOT_TOKEN`: Your bot token
+- `TELEGRAM_CHAT_ID`: Your chat ID
+
+## 📈 Performance Metrics
+
+The engine tracks and reports:
+- Messages processed per second
+- Total alerts triggered
+- Current ask/bid ratio
+- System uptime
+
+Example output:
+```
+📈 Stats: 15420 msgs | 3 alerts | 4.2 msg/s | Ratio: 1.8x
+```
+
+## ⚠️ Risk Considerations
+
+### False Positives
+- Large institutional orders can trigger alerts
+- Market maker activity may cause temporary imbalances
+- Consider multiple confirmation signals
+
+### Market Conditions
+- Algorithm works best in normal market conditions
+- Extreme volatility periods may require parameter tuning
+- Different assets may need different thresholds
+
+### Latency Factors
+- WebSocket connection quality
+- Geographic distance to exchange
+- Network congestion
+
+## 🔬 Backtesting & Validation
+
+### Historical Analysis
+To validate the algorithm:
+1. Collect historical order book data
+2. Simulate alerts on past flash crashes
+3. Measure precision and recall
+4. Optimize parameters
+
+### Known Flash Crashes to Test Against
+- May 19, 2021: Crypto market crash
+- September 7, 2021: El Salvador Bitcoin adoption
+- November 9, 2022: FTX collapse
+- March 12, 2020: COVID-19 crash
+
+## 🛠️ Development
+
+### Testing
+```bash
+npm test
+```
+
+### Debug Mode
+```bash
+LOG_LEVEL=debug npm start
+```
 
 ## 📝 License
 
 MIT License - See LICENSE file for details
+
+---
+
+**⚡ Built for speed, designed for profit, engineered for reliability.**
+
+*SentryCoin Flash Crash Predictor - Your early warning system for crypto market crashes.*

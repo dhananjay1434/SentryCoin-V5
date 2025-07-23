@@ -11,10 +11,6 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
-# Build outputs
-frontend/dist/
-backend/dist/
-
 # Logs
 logs
 *.log
@@ -46,9 +42,6 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
-.env
-
 # IDE files
 .vscode/
 .idea/
@@ -68,3 +61,7 @@ Thumbs.db
 # Temporary folders
 tmp/
 temp/
+
+# Application specific
+data/
+backups/
