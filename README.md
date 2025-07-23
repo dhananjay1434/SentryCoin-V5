@@ -67,23 +67,32 @@ npm start
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `SYMBOL` | BTCUSDT | Trading pair to monitor |
-| `DANGER_RATIO` | 3.0 | Ask/bid ratio threshold for alerts |
+| `SYMBOL` | SOLUSDT | Trading pair to monitor |
+| `DANGER_RATIO` | 2.5 | Ask/bid ratio threshold for alerts |
 | `ORDER_BOOK_DEPTH` | 50 | Number of order book levels to analyze |
 | `COOLDOWN_MINUTES` | 5 | Minutes between alerts |
 
 ### Tuning the Algorithm
 
-**Conservative (fewer false positives):**
+**For Testing (more alerts):**
 ```env
+SYMBOL=DOGEUSDT
+DANGER_RATIO=2.0
+COOLDOWN_MINUTES=2
+```
+
+**For Bitcoin (conservative):**
+```env
+SYMBOL=BTCUSDT
 DANGER_RATIO=4.0
 COOLDOWN_MINUTES=10
 ```
 
-**Aggressive (more sensitive):**
+**For Altcoins (balanced):**
 ```env
+SYMBOL=SOLUSDT
 DANGER_RATIO=2.5
-COOLDOWN_MINUTES=3
+COOLDOWN_MINUTES=5
 ```
 
 ## 🔧 How It Works
@@ -114,13 +123,45 @@ if (askToBidRatio > DANGER_RATIO && !isOnCooldown) {
 - Includes risk level, volumes, and actionable insights
 - Implements cooldown to prevent spam
 
+## ## 🧪 Best Cryptocurrencies for Testing
+
+### **High Volatility (More Alerts)**
+- **DOGEUSDT** - Meme coin with frequent pumps/dumps
+- **SHIBUSDT** - High volatility, frequent flash movements
+- **PEPEUSDT** - New meme coins are very volatile
+- **FLOKIUSDT** - Small cap with big swings
+
+### **Medium Volatility (Balanced Testing)**
+- **SOLUSDT** - Good balance of volume and volatility
+- **ADAUSDT** - Regular price movements
+- **MATICUSDT** - Decent volatility for testing
+- **AVAXUSDT** - Layer 1 with good movement
+
+### **Low Volatility (Conservative)**
+- **BTCUSDT** - Most stable, fewer false positives
+- **ETHUSDT** - Large cap, more predictable
+- **USDCUSDT** - Stablecoin (for testing edge cases)
+
+### **⚡ Quick Test Setup**
+```env
+# For immediate testing (will trigger alerts quickly)
+SYMBOL=DOGEUSDT
+DANGER_RATIO=1.8
+COOLDOWN_MINUTES=1
+
+# For realistic testing
+SYMBOL=SOLUSDT
+DANGER_RATIO=2.5
+COOLDOWN_MINUTES=5
+```
+
 ## 📱 Alert Format
 
 ```
 🚨 SENTRYCOIN FLASH CRASH WARNING 🚨
 
-📊 Asset: BTCUSDT
-💰 Current Price: $43,250.00
+📊 Asset: SOLUSDT
+💰 Current Price: $125.50
 ⚠️ Risk Level: 🔴 EXTREME
 
 📈 Order Book Analysis:

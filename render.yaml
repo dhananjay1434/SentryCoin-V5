@@ -15,9 +15,9 @@ services:
       - key: TELEGRAM_API_HASH
         sync: false
       - key: SYMBOL
-        value: BTCUSDT
+        value: SOLUSDT
       - key: DANGER_RATIO
-        value: "3.0"
+        value: "2.5"
       - key: ORDER_BOOK_DEPTH
         value: "50"
       - key: COOLDOWN_MINUTES
