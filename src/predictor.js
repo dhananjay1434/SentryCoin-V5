@@ -288,7 +288,7 @@ class FlashCrashPredictor {
     this.populateOrderBook(mockBids, mockAsks, Date.now());
 
     console.log(`✅ Mock order book initialized with ${mockBids.length} bids and ${mockAsks.length} asks`);
-    console.log(`📊 Base price: $${basePrice.toFixed(2)} (${this.symbol})`);
+    console.log(`📊 Base price: $${basePrice.toFixed(6)} (${this.symbol})`);
     console.log('⚠️ Note: Using simulated data - real trading data unavailable due to regional restrictions');
   }
 
@@ -300,6 +300,7 @@ class FlashCrashPredictor {
       'BTCUSDT': 43000,
       'ETHUSDT': 2500,
       'SOLUSDT': 100,
+      'SPKUSDT': 0.162,
       'ADAUSDT': 0.5,
       'DOGEUSDT': 0.08,
       'BNBUSDT': 300
@@ -523,7 +524,8 @@ class FlashCrashPredictor {
     
     // Log periodic updates (every 1000 messages)
     if (this.stats.messagesProcessed % 1000 === 0) {
-      console.log(`📊 Ratio: ${askToBidRatio.toFixed(2)}x | Bids: ${totalBidVolume.toFixed(2)} | Asks: ${totalAskVolume.toFixed(2)}`);
+      const currentPrice = this.getCurrentPrice();
+      console.log(`📊 Price: $${currentPrice.toFixed(6)} | Ratio: ${askToBidRatio.toFixed(2)}x | Bids: ${totalBidVolume.toFixed(2)} | Asks: ${totalAskVolume.toFixed(2)}`);
     }
   }
 

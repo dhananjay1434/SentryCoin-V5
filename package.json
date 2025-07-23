@@ -14,7 +14,8 @@
     "backtest:fetch": "node run-backtest.js fetch",
     "backtest:test": "node run-backtest.js test",
     "backtest:quick": "node run-backtest.js quick",
-    "connectivity": "node src/connectivity-test.js"
+    "connectivity": "node src/connectivity-test.js",
+    "build": "echo 'No build step required for Node.js'"
   },
   "dependencies": {
     "ws": "^8.14.2",

@@ -80,13 +80,16 @@ class FlashCrashAlerter {
       currentPrice
     } = data;
 
-    const timestamp = new Date().toISOString();
+    // Convert to Indian Standard Time (IST = UTC + 5:30)
+    const now = new Date();
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    const timestamp = istTime.toISOString().replace('T', ' ').substring(0, 19) + ' IST';
     const riskLevel = this.getRiskLevel(askToBidRatio);
 
     return `🚨 *SENTRYCOIN FLASH CRASH WARNING* 🚨
 
 📊 *Asset:* ${symbol}
-💰 *Current Price:* $${currentPrice.toFixed(2)}
+💰 *Current Price:* $${currentPrice.toFixed(6)}
 ⚠️ *Risk Level:* ${riskLevel}
 
 📈 *Order Book Analysis:*
@@ -132,11 +135,16 @@ class FlashCrashAlerter {
    * Sends a test alert to verify Telegram configuration
    */
   async sendTestAlert() {
+    // Convert to Indian Standard Time (IST = UTC + 5:30)
+    const now = new Date();
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    const timestamp = istTime.toISOString().replace('T', ' ').substring(0, 19) + ' IST';
+
     const testMessage = `🧪 *SentryCoin Test Alert*
 
 This is a test message to verify your Telegram configuration is working correctly.
 
-⏰ Time: ${new Date().toISOString()}
+⏰ Time: ${timestamp}
 🤖 Status: System operational`;
 
     try {
