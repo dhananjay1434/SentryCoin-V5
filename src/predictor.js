@@ -9,7 +9,7 @@ dotenv.config();
 
 class FlashCrashPredictor {
   constructor() {
-    this.symbol = process.env.SYMBOL || 'BTCUSDT';
+    this.symbol = process.env.SYMBOL || 'SPKUSDT';
     this.dangerRatio = parseFloatEnv('DANGER_RATIO', 3.0);
     this.orderBookDepth = parseIntEnv('ORDER_BOOK_DEPTH', 50);
     this.exchange = process.env.EXCHANGE || 'coinbase'; // Default to Coinbase Pro

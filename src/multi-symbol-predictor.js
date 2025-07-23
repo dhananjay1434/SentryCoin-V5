@@ -26,7 +26,7 @@ class MultiSymbolPredictor {
    * Parses symbols from environment variable
    */
   parseSymbols() {
-    const symbolsEnv = process.env.SYMBOLS || process.env.SYMBOL || 'BTCUSDT';
+    const symbolsEnv = process.env.SYMBOLS || process.env.SYMBOL || 'SPKUSDT';
     return symbolsEnv.split(',').map(s => s.trim().toUpperCase());
   }
 
