@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import axios from 'axios';
 import FlashCrashAlerter from './alerter.js';
+import SignalValidator from './signal-validator.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -27,6 +28,9 @@ class FlashCrashPredictor {
     
     // Alerting system
     this.alerter = new FlashCrashAlerter();
+
+    // Signal validation system
+    this.validator = new SignalValidator(this.symbol);
 
     // Cooldown system to prevent alert spam
     this.lastAlertTime = null;
@@ -522,10 +526,22 @@ class FlashCrashPredictor {
       });
     }
     
+    // Update price tracking for active signals
+    if (this.currentSignalId) {
+      const currentPrice = this.getCurrentPrice();
+      this.validator.updatePriceTracking(this.currentSignalId, currentPrice);
+    }
+
     // Log periodic updates (every 1000 messages)
     if (this.stats.messagesProcessed % 1000 === 0) {
       const currentPrice = this.getCurrentPrice();
       console.log(`📊 Price: $${currentPrice.toFixed(6)} | Ratio: ${askToBidRatio.toFixed(2)}x | Bids: ${totalBidVolume.toFixed(2)} | Asks: ${totalAskVolume.toFixed(2)}`);
+
+      // Show validation stats
+      const validationStats = this.validator.getStats();
+      if (validationStats.totalSignals > 0) {
+        console.log(`📈 Validation: ${validationStats.totalSignals} signals, ${validationStats.accuracy.toFixed(1)}% accuracy`);
+      }
     }
   }
 
@@ -566,16 +582,23 @@ class FlashCrashPredictor {
     console.log(`   Ask/Bid Ratio: ${alertData.askToBidRatio.toFixed(2)}x (threshold: ${this.dangerRatio}x)`);
     console.log(`   Total Bid Volume: ${alertData.totalBidVolume.toFixed(2)}`);
     console.log(`   Total Ask Volume: ${alertData.totalAskVolume.toFixed(2)}`);
-    
+
+    // Record signal for validation tracking
+    const signalId = this.validator.recordSignal(alertData);
+    console.log(`📊 Signal recorded for validation: ${signalId}`);
+
     const success = await this.alerter.triggerFlashCrashAlert({
       symbol: this.symbol,
       ...alertData
     });
-    
+
     if (success) {
       this.stats.alertsTriggered++;
       this.lastAlertTime = Date.now(); // Activate cooldown period
       console.log(`⏰ Alert cooldown activated for ${this.cooldownMinutes} minutes`);
+
+      // Store signal ID for price tracking
+      this.currentSignalId = signalId;
     }
   }
 

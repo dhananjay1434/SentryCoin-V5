@@ -15,7 +15,8 @@
     "backtest:test": "node run-backtest.js test",
     "backtest:quick": "node run-backtest.js quick",
     "connectivity": "node src/connectivity-test.js",
-    "build": "echo 'No build step required for Node.js'"
+    "build": "echo 'No build step required for Node.js'",
+    "validation-report": "node view-validation-report.js"
   },
   "dependencies": {
     "ws": "^8.14.2",
