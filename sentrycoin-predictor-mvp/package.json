@@ -1,0 +1,36 @@
+{
+  "name": "sentrycoin-flash-crash-predictor",
+  "version": "1.0.0",
+  "description": "SentryCoin Flash Crash Predictor - Real-time order book imbalance detection engine",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node src/test.js"
+  },
+  "dependencies": {
+    "ws": "^8.14.2",
+    "node-telegram-bot-api": "^0.64.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "crypto",
+    "flash-crash",
+    "order-book",
+    "quantitative",
+    "trading",
+    "binance",
+    "market-microstructure",
+    "liquidity-analysis"
+  ],
+  "author": "SentryCoin",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

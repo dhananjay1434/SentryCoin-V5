@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: sentrycoin-mvp
+    env: node
+    plan: free
+    buildCommand: |
+      # Build the frontend first
+      cd frontend
+      npm install
+      npm run build
+      # Then install backend dependencies
+      cd ../backend
+      npm install
+    startCommand: "cd backend && node src/server.js"
+    envVars:
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_EMAIL
+        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: MAX_PRICE_HISTORY_HOURS
+        value: "6"

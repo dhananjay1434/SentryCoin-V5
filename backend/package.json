@@ -1,0 +1,34 @@
+{
+  "name": "sentrycoin-backend",
+  "version": "1.0.0",
+  "description": "SentryCoin MVP Backend - Advanced crypto price alerts with time-based analysis",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "generate-vapid": "npx web-push generate-vapid-keys"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2",
+    "web-push": "^3.6.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "crypto",
+    "alerts",
+    "push-notifications",
+    "binance",
+    "websocket",
+    "percentage-drops",
+    "velocity-changes",
+    "time-based-analysis"
+  ],
+  "author": "SentryCoin",
+  "license": "MIT"
+}
