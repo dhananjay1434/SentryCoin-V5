@@ -8,11 +8,34 @@
  */
 
 import SentryCoinV4 from './sentrycoin-v4.js';
-import QuantitativeAPI from './quantitative-api.js';
-import MonitoringDashboard from '../monitoring-dashboard.js';
 import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
+
+// Conditional imports for optional components
+let QuantitativeAPI = null;
+let MonitoringDashboard = null;
+let cors = null;
+
+try {
+  const quantModule = await import('./quantitative-api.js');
+  QuantitativeAPI = quantModule.default;
+} catch (error) {
+  console.log('⚠️ Quantitative API not available:', error.message);
+}
+
+try {
+  const dashModule = await import('../monitoring-dashboard.js');
+  MonitoringDashboard = dashModule.default;
+} catch (error) {
+  console.log('⚠️ Monitoring Dashboard not available:', error.message);
+}
+
+try {
+  const corsModule = await import('cors');
+  cors = corsModule.default;
+} catch (error) {
+  console.log('⚠️ CORS not available:', error.message);
+}
 
 dotenv.config();
 
@@ -32,7 +55,12 @@ async function main() {
   const port = process.env.PORT || 3000;
   
   app.use(express.json());
-  app.use(cors());
+
+  // Use CORS if available
+  if (cors) {
+    app.use(cors());
+    console.log('✅ CORS enabled');
+  }
 
   // Initialize quantitative API and monitoring dashboard
   let quantitativeAPI = null;
@@ -270,15 +298,27 @@ async function main() {
       console.log('🎯 Dual-Strategy Trading: MONITORING');
       console.log('📊 Real-time Analysis: RUNNING');
 
-      // Initialize quantitative API endpoints
-      quantitativeAPI = new QuantitativeAPI(sentryCoinSystem);
-      app.use('/api/quantitative', quantitativeAPI.getRouter());
-      console.log('📊 Quantitative API: ACTIVE');
+      // Initialize quantitative API endpoints if available
+      if (QuantitativeAPI) {
+        try {
+          quantitativeAPI = new QuantitativeAPI(sentryCoinSystem);
+          app.use('/api/quantitative', quantitativeAPI.getRouter());
+          console.log('📊 Quantitative API: ACTIVE');
+        } catch (error) {
+          console.log('⚠️ Failed to initialize Quantitative API:', error.message);
+        }
+      }
 
-      // Initialize monitoring dashboard
-      monitoringDashboard = new MonitoringDashboard(sentryCoinSystem);
-      monitoringDashboard.start(3001);
-      console.log('📈 Monitoring Dashboard: http://localhost:3001');
+      // Initialize monitoring dashboard if available
+      if (MonitoringDashboard) {
+        try {
+          monitoringDashboard = new MonitoringDashboard(sentryCoinSystem);
+          monitoringDashboard.start(3001);
+          console.log('📈 Monitoring Dashboard: http://localhost:3001');
+        } catch (error) {
+          console.log('⚠️ Failed to initialize Monitoring Dashboard:', error.message);
+        }
+      }
 
     } else {
       console.error('\n❌ Failed to start SentryCoin v4.0');
@@ -294,9 +334,13 @@ async function main() {
   process.on('SIGINT', async () => {
     console.log('\n🛑 Received SIGINT, shutting down gracefully...');
 
-    if (monitoringDashboard) {
-      monitoringDashboard.stop();
-      console.log('📈 Monitoring Dashboard: STOPPED');
+    if (monitoringDashboard && typeof monitoringDashboard.stop === 'function') {
+      try {
+        monitoringDashboard.stop();
+        console.log('📈 Monitoring Dashboard: STOPPED');
+      } catch (error) {
+        console.log('⚠️ Error stopping dashboard:', error.message);
+      }
     }
 
     if (sentryCoinSystem) {
