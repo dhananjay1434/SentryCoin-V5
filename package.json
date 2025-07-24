@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "test": "node tests/unit/core.test.js",
+    "test:config": "node tests/config-test.js",
     "test:integration": "node tests/integration/connectivity.test.js",
     "backtest": "node scripts/run-backtest.js",
     "backtest:fetch": "node scripts/run-backtest.js fetch",

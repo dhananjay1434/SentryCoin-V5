@@ -13,16 +13,17 @@ import { getISTTime, parseFloatEnv, parseIntEnv, formatPrice, formatPriceWithSym
 import cloudStorage from '../services/cloud-storage.js';
 
 class MarketClassifier extends EventEmitter {
-  constructor(symbol) {
+  constructor(symbol, config = null) {
     super();
-    
+
     this.symbol = symbol;
-    
-    // Configurable thresholds for independent tuning
-    this.pressureThreshold = parseFloatEnv('PRESSURE_THRESHOLD', 3.0);
-    this.liquidityThreshold = parseIntEnv('LIQUIDITY_THRESHOLD', 100000);
-    this.strongMomentumThreshold = parseFloatEnv('STRONG_MOMENTUM_THRESHOLD', -0.3);
-    this.weakMomentumThreshold = parseFloatEnv('WEAK_MOMENTUM_THRESHOLD', -0.1);
+    this.config = config;
+
+    // Configurable thresholds - use config if provided, otherwise environment variables
+    this.pressureThreshold = config?.signals?.pressureThreshold || parseFloatEnv('PRESSURE_THRESHOLD', 3.0);
+    this.liquidityThreshold = config?.signals?.liquidityThreshold || parseIntEnv('LIQUIDITY_THRESHOLD', 100000);
+    this.strongMomentumThreshold = config?.signals?.strongMomentumThreshold || parseFloatEnv('STRONG_MOMENTUM_THRESHOLD', -0.3);
+    this.weakMomentumThreshold = config?.signals?.weakMomentumThreshold || parseFloatEnv('WEAK_MOMENTUM_THRESHOLD', -0.1);
     
     // Classification statistics
     this.stats = {

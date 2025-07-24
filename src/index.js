@@ -15,6 +15,7 @@
  */
 
 import SentryCoinEngine from './core/sentrycoin-engine.js';
+import { config, validateConfig, printConfigSummary } from '../config.js';
 import { validateEnvironmentVariables, getISTTime } from './utils/index.js';
 import express from 'express';
 import dotenv from 'dotenv';
@@ -46,6 +47,15 @@ async function main() {
   console.log('🛡️ SentryCoin v4.0 - Production Trading Engine');
   console.log('📊 Market Microstructure Classification System');
   console.log('🎯 Dual-Strategy Trading Engine\n');
+
+  // Validate configuration first
+  if (!validateConfig()) {
+    console.error('❌ Configuration validation failed. Exiting...');
+    process.exit(1);
+  }
+
+  // Display production configuration
+  printConfigSummary();
 
   validateEnvironment();
 
@@ -110,9 +120,9 @@ async function main() {
     console.log(`   Health: http://localhost:${port}/health`);
   });
 
-  // Initialize and start the SentryCoin system
+  // Initialize and start the SentryCoin system with production config
   try {
-    sentryCoinSystem = new SentryCoinEngine();
+    sentryCoinSystem = new SentryCoinEngine(config);
     const started = await sentryCoinSystem.start();
 
     if (started) {

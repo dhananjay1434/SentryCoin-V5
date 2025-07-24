@@ -17,9 +17,11 @@ import cloudStorage from '../services/cloud-storage.js';
 import { getISTTime, formatPrice, formatPriceWithSymbol } from '../utils/index.js';
 
 class SentryCoinEngine {
-  constructor() {
-    this.symbol = process.env.SYMBOL || 'SPKUSDT';
-    this.version = '4.0.0';
+  constructor(config = null) {
+    // Use provided config or fallback to environment variables
+    this.config = config;
+    this.symbol = config?.trading?.symbol || process.env.SYMBOL || 'SPKUSDT';
+    this.version = config?.system?.version || '4.0.0';
     
     // Core components
     this.predictor = null;
@@ -56,13 +58,13 @@ class SentryCoinEngine {
       await cloudStorage.initialize();
       console.log('✅ Cloud storage initialized');
       
-      // Initialize market classifier
-      this.classifier = new MarketClassifier(this.symbol);
+      // Initialize market classifier with config
+      this.classifier = new MarketClassifier(this.symbol, this.config);
       console.log('✅ Market classifier initialized');
-      
-      // Initialize trading modules
-      this.trifectaTrader = new TrifectaTrader(this.symbol);
-      this.squeezeTrader = new SqueezeTrader(this.symbol);
+
+      // Initialize trading modules with config
+      this.trifectaTrader = new TrifectaTrader(this.symbol, this.config);
+      this.squeezeTrader = new SqueezeTrader(this.symbol, this.config);
       console.log('✅ Trading modules initialized');
 
       // Initialize detailed reporter
