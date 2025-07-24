@@ -254,8 +254,8 @@ class CascadeHunterTrader extends EventEmitter {
 
     console.log(`🏁 POSITION CLOSED: ${position.id}`);
     console.log(`   📊 Reason: ${reason}`);
-    console.log(`   💰 P&L: $${position.realizedPnL.toFixed(6)}`);
-    console.log(`   📈 Return: ${((position.realizedPnL / position.size) * 100).toFixed(4)}%`);
+    console.log(`   💰 P&L: ${position.realizedPnL.toFixed(2)}%`);
+    console.log(`   📈 Entry: ${formatPriceWithSymbol(position.entryPrice)} | Exit: ${formatPriceWithSymbol(exitPrice)}`);
 
     // Emit event for reporter
     this.emit('positionClosed', position);
@@ -265,22 +265,40 @@ class CascadeHunterTrader extends EventEmitter {
   }
 
   /**
-   * Calculate unrealized P&L for open position
+   * Calculate unrealized P&L for open position (percentage-based)
    */
   calculateUnrealizedPnL(position, currentPrice) {
-    if (position.type === 'SHORT') {
-      return (position.entryPrice - currentPrice) * (position.size / position.entryPrice);
+    if (!position || !currentPrice) return 0;
+
+    const { entryPrice, type } = position;
+
+    if (type === 'SHORT') {
+      // For SHORT: profit when price goes down, loss when price goes up
+      return ((entryPrice - currentPrice) / entryPrice) * 100;
+    } else if (type === 'LONG') {
+      // For LONG: profit when price goes up, loss when price goes down
+      return ((currentPrice - entryPrice) / entryPrice) * 100;
     }
+
     return 0;
   }
 
   /**
-   * Calculate realized P&L for closed position
+   * Calculate realized P&L for closed position (percentage-based)
    */
   calculateRealizedPnL(position) {
-    if (position.type === 'SHORT') {
-      return (position.entryPrice - position.exitPrice) * (position.size / position.entryPrice);
+    if (!position || !position.exitPrice) return 0;
+
+    const { entryPrice, exitPrice, type } = position;
+
+    if (type === 'SHORT') {
+      // For SHORT: profit when exit price is lower than entry price
+      return ((entryPrice - exitPrice) / entryPrice) * 100;
+    } else if (type === 'LONG') {
+      // For LONG: profit when exit price is higher than entry price
+      return ((exitPrice - entryPrice) / entryPrice) * 100;
     }
+
     return 0;
   }
 
@@ -401,7 +419,8 @@ class CascadeHunterTrader extends EventEmitter {
       ...this.stats,
       activePositions: this.activePositions.size,
       winRate: `${winRate}%`,
-      avgPnL: `$${avgPnL}`,
+      avgPnL: `${avgPnL}%`,
+      totalPnL: `${this.stats.totalPnL.toFixed(2)}%`,
       uptime: Math.floor((Date.now() - this.stats.startTime) / 1000)
     };
   }
