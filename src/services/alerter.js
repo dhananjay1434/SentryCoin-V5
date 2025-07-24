@@ -30,8 +30,14 @@ class FlashCrashAlerter {
    * @param {number} alertData.currentPrice - Current market price
    */
   async triggerFlashCrashAlert(alertData) {
-    if (this.isOnCooldown()) {
-      console.log(`⏰ Alert suppressed - still in cooldown period`);
+    // v4.1: Check for custom message (COIL_WATCHER, SHAKEOUT_DETECTOR)
+    if (alertData.message) {
+      return await this.sendCustomMessage(alertData.message, alertData.alertType);
+    }
+
+    // Legacy cooldown check for CASCADE_HUNTER signals
+    if (alertData.alertType === 'CASCADE_HUNTER' && this.isOnCooldown()) {
+      console.log(`⏰ CASCADE_HUNTER alert suppressed - still in cooldown period`);
       return false;
     }
 
@@ -44,6 +50,7 @@ class FlashCrashAlerter {
     } = alertData;
 
     const message = this.formatAlertMessage({
+      ...alertData,
       symbol,
       askToBidRatio,
       totalBidVolume,
@@ -57,12 +64,68 @@ class FlashCrashAlerter {
         disable_web_page_preview: true
       });
 
-      this.lastAlertTime = Date.now();
-      console.log(`🚨 Flash crash alert sent for ${symbol}`);
+      // Only update cooldown for CASCADE_HUNTER signals
+      if (alertData.alertType === 'CASCADE_HUNTER') {
+        this.lastAlertTime = Date.now();
+      }
+
+      console.log(`🚨 ${alertData.alertType || 'Flash crash'} alert sent for ${symbol}`);
       return true;
 
     } catch (error) {
       console.error('❌ Failed to send Telegram alert:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Send custom message for v4.1 alert types (COIL_WATCHER, SHAKEOUT_DETECTOR)
+   */
+  async sendCustomMessage(message, alertType) {
+    try {
+      await this.bot.sendMessage(this.chatId, message, {
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true
+      });
+
+      console.log(`📱 ${alertType} custom message sent successfully`);
+      return true;
+
+    } catch (error) {
+      console.error(`❌ Failed to send ${alertType} message:`, error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Send test alert to verify Telegram connection
+   */
+  async sendTestAlert() {
+    const testMessage = `🧪 *SENTRYCOIN v4.1 TEST ALERT* 🧪
+
+✅ Telegram connection verified
+🤖 Engine: SentryCoin v4.1
+📱 Paper Trading Mode: ACTIVE
+⏰ Time: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST
+
+🎯 All three regime detectors are operational:
+• CASCADE_HUNTER (Active SHORT Trading)
+• COIL_WATCHER (Accumulation Alerts)
+• SHAKEOUT_DETECTOR (Stop Hunt Alerts)
+
+🚀 System Status: READY FOR DEPLOYMENT`;
+
+    try {
+      await this.bot.sendMessage(this.chatId, testMessage, {
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true
+      });
+
+      console.log('✅ Test alert sent successfully');
+      return true;
+
+    } catch (error) {
+      console.error('❌ Failed to send test alert:', error.message);
       return false;
     }
   }
@@ -85,12 +148,39 @@ class FlashCrashAlerter {
 
     const timestamp = getISTTime();
     const riskLevel = getRiskLevel(askToBidRatio);
-    const signalType = data.signalType || 'CRITICAL';
+    const signalType = data.signalType || data.alertType || 'CRITICAL';
     const confidence = data.confidence || 'HIGH';
-    const version = algorithmVersion || 'v2.0';
+    const version = algorithmVersion || 'v4.1';
 
-    // SentryCoin v4.0 Signal Formatting
-    if (signalType === 'TRIFECTA_CONVICTION_SIGNAL') {
+    // SentryCoin v4.1 CASCADE_HUNTER Signal Formatting
+    if (signalType === 'CASCADE_HUNTER' || signalType === 'TRIFECTA_CONVICTION_SIGNAL') {
+      const tradingMode = data.paperTrading !== false ? 'PAPER TRADING' : 'LIVE TRADING';
+
+      return `🚨 *SENTRYCOIN v4.1 CASCADE_HUNTER* 🚨
+
+📊 *Asset:* ${symbol} (BINANCE)
+💰 *Current Price:* $${currentPrice.toFixed(6)}
+⚠️ *Strategy:* SHORT (${confidence} Confidence)
+🎯 *Regime:* ${data.regime || 'DISTRIBUTION_PHASE'}
+📝 *Mode:* ${tradingMode}
+
+🔥 *CASCADE CONDITIONS MET:*
+• *Pressure:* ${askToBidRatio.toFixed(2)}x ✅ (≥3.0x)
+• *Liquidity:* ${formatVolume(totalBidVolume)} ✅ (≥100k HIGH)
+• *Momentum:* ${momentum.toFixed(3)}% ✅ (≤-0.3% STRONG)
+
+📈 *Market Analysis:*
+High liquidity being overwhelmed by massive sell pressure. Active dumping detected in distribution phase.
+
+🎯 *Expected Outcome:* CONTINUED DECLINE
+⚡ *Action:* ${data.tradingAction || 'SHORT_EXECUTED'}
+
+⏰ *Time:* ${timestamp}
+🤖 *Engine:* SentryCoin v4.1 (Market Intelligence Platform)`;
+    }
+
+    // Legacy v4.0 Trifecta formatting for backward compatibility
+    if (signalType === 'TRIFECTA_CONVICTION_SIGNAL_LEGACY') {
       return `🚨 *SENTRYCOIN v4.0 TRIFECTA CONVICTION* 🚨
 
 📊 *Asset:* ${symbol} (BINANCE)
