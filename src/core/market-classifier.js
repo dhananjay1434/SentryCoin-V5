@@ -62,13 +62,41 @@ class MarketClassifier extends EventEmitter {
     const pressureCondition = askToBidRatio > this.pressureThreshold;
     const liquidityCondition = totalBidVolume < this.liquidityThreshold;
 
+    // 🔍 DIAGNOSTIC LOGGING - Show all condition checks
+    const pressureCheck = pressureCondition ? '✅' : '❌';
+    const liquidityCheck = liquidityCondition ? '✅' : '❌';
+    const momentumCheck = momentum <= this.strongMomentumThreshold ? '✅' : '❌';
+
+    const diagnosticLog = `[DIAGNOSTIC] Pressure ${pressureCheck} (${askToBidRatio.toFixed(2)}x vs ${this.pressureThreshold}x), ` +
+                         `Liquidity ${liquidityCheck} (${(totalBidVolume/1000).toFixed(1)}k vs ${(this.liquidityThreshold/1000).toFixed(1)}k), ` +
+                         `Momentum ${momentumCheck} (${momentum.toFixed(3)}% vs ${this.strongMomentumThreshold}%)`;
+
+    // Log every 10th classification or when conditions are close to triggering
+    const shouldLog = this.stats.totalClassifications % 10 === 0 ||
+                     askToBidRatio > (this.pressureThreshold * 0.8) ||
+                     totalBidVolume < (this.liquidityThreshold * 1.2) ||
+                     momentum < (this.strongMomentumThreshold * 0.8);
+
+    if (shouldLog) {
+      console.log(diagnosticLog);
+    }
+
     if (!pressureCondition || !liquidityCondition) {
       // No signal - market conditions are normal
       this.stats.noSignals++;
+
+      // Log why the signal failed (only occasionally to avoid spam)
+      if (shouldLog) {
+        const failureReason = !pressureCondition ? 'PRESSURE_TOO_LOW' : 'LIQUIDITY_TOO_HIGH';
+        console.log(`🔍 Signal blocked: ${failureReason}`);
+      }
+
       return null;
     }
 
     // Step 2: Classify based on momentum (the critical differentiator)
+    console.log(`🎯 PASSED basic conditions! Checking momentum: ${momentum.toFixed(3)}% (need ≤${this.strongMomentumThreshold}%)`);
+
     const classification = this.classifyByMomentum(momentum, {
       askToBidRatio,
       totalBidVolume,
@@ -80,14 +108,18 @@ class MarketClassifier extends EventEmitter {
     });
 
     if (classification) {
+      console.log(`🚨 SIGNAL GENERATED: ${classification.type} - ${classification.phenomenon}`);
+
       // Emit the appropriate event for the trading modules
       this.emit(classification.type, classification);
-      
+
       // Log the classification
       this.logClassification(classification);
-      
+
       // Save to cloud storage for analysis
       this.saveClassification(classification);
+    } else {
+      console.log(`🔍 No signal: Momentum insufficient (${momentum.toFixed(3)}% > ${this.strongMomentumThreshold}%)`);
     }
 
     return classification;

@@ -304,6 +304,52 @@ class SqueezeTrader extends EventEmitter {
   }
 
   /**
+   * Check exit conditions for a position (stop-loss, take-profit, time exit)
+   */
+  async checkExitConditions(position, currentPrice) {
+    try {
+      const { entryPrice, type, stopLoss, takeProfit, timestamp } = position;
+      let exitReason = null;
+
+      // For LONG positions (Absorption Squeeze strategy)
+      if (type === 'LONG') {
+        // Stop loss: price goes down beyond stop loss
+        if (currentPrice <= stopLoss) {
+          exitReason = 'STOP_LOSS';
+        }
+        // Take profit: price goes up to take profit level
+        else if (currentPrice >= takeProfit) {
+          exitReason = 'TAKE_PROFIT';
+        }
+      }
+      // For SHORT positions (if any)
+      else if (type === 'SHORT') {
+        // Stop loss: price goes up beyond stop loss
+        if (currentPrice >= stopLoss) {
+          exitReason = 'STOP_LOSS';
+        }
+        // Take profit: price goes down to take profit level
+        else if (currentPrice <= takeProfit) {
+          exitReason = 'TAKE_PROFIT';
+        }
+      }
+
+      // Time-based exit (unique to Absorption Squeeze strategy)
+      const positionAge = (Date.now() - new Date(timestamp).getTime()) / 1000;
+      if (this.timeExitSeconds && positionAge >= this.timeExitSeconds) {
+        exitReason = 'TIME_EXIT';
+      }
+
+      if (exitReason) {
+        await this.closePosition(position, exitReason, currentPrice);
+        console.log(`🔄 Squeeze position closed: ${exitReason} at $${currentPrice} (held ${Math.floor(positionAge)}s)`);
+      }
+    } catch (error) {
+      console.error(`❌ Error checking exit conditions for position ${position.id}:`, error.message);
+    }
+  }
+
+  /**
    * Get trading performance statistics
    */
   getStats() {

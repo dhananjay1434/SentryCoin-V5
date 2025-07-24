@@ -188,10 +188,36 @@ class SentryCoinEngine {
 
   /**
    * Update all active positions with current price
+   * CRITICAL: Implements fault tolerance to prevent system crashes
    */
   updateAllPositions(currentPrice) {
-    this.trifectaTrader.updatePositions(currentPrice);
-    this.squeezeTrader.updatePositions(currentPrice);
+    if (!currentPrice) {
+      return;
+    }
+
+    const activeTraders = [
+      { name: 'TrifectaTrader', instance: this.trifectaTrader },
+      { name: 'SqueezeTrader', instance: this.squeezeTrader }
+    ];
+
+    for (const trader of activeTraders) {
+      try {
+        // Defensive programming: Check if trader exists and has the required method
+        if (trader.instance && typeof trader.instance.updatePositions === 'function') {
+          trader.instance.updatePositions(currentPrice);
+        } else if (trader.instance) {
+          console.warn(`⚠️ ${trader.name} missing updatePositions method - skipping position updates`);
+        }
+      } catch (error) {
+        // CRITICAL: Log the error but DO NOT re-throw it
+        // This prevents a single trader failure from crashing the entire system
+        console.error(`❌ CRITICAL ERROR in ${trader.name}. Module will continue but position updates disabled:`, error.message);
+        console.error(`   Stack trace:`, error.stack);
+
+        // Optional: Implement trader disabling logic for this session
+        // trader.instance._disabled = true;
+      }
+    }
   }
 
   /**

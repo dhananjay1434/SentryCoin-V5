@@ -466,18 +466,103 @@ class FlashCrashPredictor {
       mockUpdate.a.push([askPrice, quantity]);
     }
 
-    // Occasionally create imbalanced conditions for testing
-    if (Math.random() < 0.1) { // 10% chance
-      // Create sell pressure (more asks)
+    // Enhanced testing scenarios with deterministic conditions
+    const testScenario = Math.random();
+
+    if (testScenario < 0.05) { // 5% chance - GUARANTEED TRIFECTA SIGNAL
+      console.log('🎭 FORCING TRIFECTA CONDITIONS: High pressure + Low liquidity + Strong momentum');
+      this.forceSignalCondition({
+        pressure: 4.5,        // Well above 3.0 threshold
+        liquidity: 50000,     // Well below 100k threshold
+        momentum: -0.5        // Well below -0.3% threshold
+      }, mockUpdate, basePrice, priceChange);
+
+    } else if (testScenario < 0.1) { // 5% chance - ABSORPTION SQUEEZE SIGNAL
+      console.log('🎭 FORCING ABSORPTION CONDITIONS: High pressure + Low liquidity + Weak momentum');
+      this.forceSignalCondition({
+        pressure: 3.5,        // Above 3.0 threshold
+        liquidity: 80000,     // Below 100k threshold
+        momentum: -0.15       // Between -0.1% and -0.3%
+      }, mockUpdate, basePrice, priceChange);
+
+    } else if (testScenario < 0.15) { // 5% chance - NEAR MISS (for testing thresholds)
+      console.log('🎭 GENERATING NEAR-MISS CONDITIONS: Close but not quite');
+      this.forceSignalCondition({
+        pressure: 2.9,        // Just below 3.0 threshold
+        liquidity: 105000,    // Just above 100k threshold
+        momentum: -0.25       // Close to -0.3% threshold
+      }, mockUpdate, basePrice, priceChange);
+
+    } else if (testScenario < 0.25) { // 10% chance - WEAK SELL PRESSURE (original logic)
+      // Create sell pressure (more asks) - but not extreme enough for signals
       for (let i = 0; i < 10; i++) {
         const askPrice = (basePrice + priceChange + (i * 0.005)).toFixed(2);
-        const quantity = (Math.random() * 50 + 10).toFixed(4); // Larger quantities
+        const quantity = (Math.random() * 50 + 10).toFixed(4);
         mockUpdate.a.push([askPrice, quantity]);
       }
-      console.log('🎭 Generated mock sell pressure for testing');
+      console.log('🎭 Generated weak sell pressure (likely insufficient for signals)');
     }
 
     this.processDepthUpdate(mockUpdate);
+  }
+
+  /**
+   * Forces specific market conditions for deterministic testing
+   * @param {Object} targetState - Target market conditions
+   * @param {Object} mockUpdate - Mock update object to modify
+   * @param {number} basePrice - Base price for calculations
+   * @param {number} priceChange - Price change for momentum
+   */
+  forceSignalCondition(targetState, mockUpdate, basePrice, priceChange) {
+    const { pressure, liquidity, momentum } = targetState;
+
+    console.log(`🎯 Forcing conditions: Pressure=${pressure}x, Liquidity=${liquidity}, Momentum=${momentum}%`);
+
+    // Clear existing mock data
+    mockUpdate.b = [];
+    mockUpdate.a = [];
+
+    // Calculate required volumes to achieve target pressure ratio
+    // pressure = totalAskVolume / totalBidVolume
+    // We want totalBidVolume < liquidity threshold
+    const targetBidVolume = Math.min(liquidity * 0.8, 80000); // Ensure below threshold
+    const targetAskVolume = targetBidVolume * pressure;
+
+    // Create bid side (limited volume to meet liquidity condition)
+    const bidLevels = 20;
+    const avgBidVolume = targetBidVolume / bidLevels;
+
+    for (let i = 0; i < bidLevels; i++) {
+      const bidPrice = (basePrice - (i * 0.001)).toFixed(6);
+      const bidQuantity = (avgBidVolume * (0.8 + Math.random() * 0.4)).toFixed(4);
+      mockUpdate.b.push([bidPrice, bidQuantity]);
+    }
+
+    // Create ask side (high volume to meet pressure condition)
+    const askLevels = 25;
+    const avgAskVolume = targetAskVolume / askLevels;
+
+    for (let i = 0; i < askLevels; i++) {
+      const askPrice = (basePrice + (i * 0.001)).toFixed(6);
+      const askQuantity = (avgAskVolume * (0.8 + Math.random() * 0.4)).toFixed(4);
+      mockUpdate.a.push([askPrice, askQuantity]);
+    }
+
+    // Force momentum by manipulating price history
+    // Momentum is calculated from recent price changes
+    const targetPriceChange = (momentum / 100) * basePrice; // Convert percentage to absolute
+    const forcedPrice = basePrice + targetPriceChange;
+
+    // Update the current price to achieve target momentum
+    this.lastPrice = forcedPrice;
+
+    // Add the forced price change to price history
+    if (this.priceHistory.length >= this.priceHistoryLength) {
+      this.priceHistory.shift();
+    }
+    this.priceHistory.push(forcedPrice);
+
+    console.log(`📊 Forced market state: BidVol=${targetBidVolume.toFixed(0)}, AskVol=${targetAskVolume.toFixed(0)}, Price=${forcedPrice.toFixed(6)}`);
   }
 
   /**

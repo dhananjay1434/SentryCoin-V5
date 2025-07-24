@@ -288,6 +288,46 @@ class TrifectaTrader extends EventEmitter {
   }
 
   /**
+   * Check exit conditions for a position (stop-loss, take-profit)
+   */
+  async checkExitConditions(position, currentPrice) {
+    try {
+      const { entryPrice, type, stopLoss, takeProfit } = position;
+      let exitReason = null;
+
+      // For SHORT positions (Trifecta strategy)
+      if (type === 'SHORT') {
+        // Stop loss: price goes up beyond stop loss
+        if (currentPrice >= stopLoss) {
+          exitReason = 'STOP_LOSS';
+        }
+        // Take profit: price goes down to take profit level
+        else if (currentPrice <= takeProfit) {
+          exitReason = 'TAKE_PROFIT';
+        }
+      }
+      // For LONG positions (if any)
+      else if (type === 'LONG') {
+        // Stop loss: price goes down beyond stop loss
+        if (currentPrice <= stopLoss) {
+          exitReason = 'STOP_LOSS';
+        }
+        // Take profit: price goes up to take profit level
+        else if (currentPrice >= takeProfit) {
+          exitReason = 'TAKE_PROFIT';
+        }
+      }
+
+      if (exitReason) {
+        await this.closePosition(position, exitReason, currentPrice);
+        console.log(`🎯 Trifecta position closed: ${exitReason} at $${currentPrice}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error checking exit conditions for position ${position.id}:`, error.message);
+    }
+  }
+
+  /**
    * Get trading performance statistics
    */
   getStats() {
