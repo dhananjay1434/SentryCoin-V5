@@ -110,7 +110,7 @@ class MarketClassifier extends EventEmitter {
       currentPrice,
       timestamp,
       pressureCondition,
-      liquidityCondition
+      symbol: this.symbol
     });
 
     if (classification) {
