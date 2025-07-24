@@ -154,7 +154,7 @@ class DetailedReporter {
     };
 
     this.reportData.pressureSpikes.push(record);
-    this.saveToMemory(`${signal.symbol}_pressure_spike_${Date.now()}`, record);
+    this.saveToCloud(`${signal.symbol}_pressure_spike_${Date.now()}`, record);
 
     console.log(`🔥 PRESSURE SPIKE RECORDED: ${signal.symbol} at $${signal.currentPrice.toFixed(6)}`);
     console.log(`   📊 Pressure: ${signal.askToBidRatio.toFixed(2)}x | Liquidity: ${(signal.totalBidVolume/1000).toFixed(1)}k | Momentum: ${signal.momentum.toFixed(3)}%`);
