@@ -29,6 +29,7 @@ class MarketClassifier extends EventEmitter {
       totalClassifications: 0,
       trifectaConvictions: 0,
       absorptionSqueezes: 0,
+      pressureSpikes: 0,
       noSignals: 0,
       startTime: Date.now()
     };
@@ -100,9 +101,7 @@ class MarketClassifier extends EventEmitter {
       return null;
     }
 
-    // Step 2: Classify based on momentum (the critical differentiator)
-    console.log(`🎯 PASSED basic conditions! Checking momentum: ${momentum.toFixed(3)}% (need ≤${this.strongMomentumThreshold}%)`);
-
+    // Step 2: Classify based on momentum and liquidity (the critical differentiators)
     const classification = this.classifyByMomentum(momentum, {
       askToBidRatio,
       totalBidVolume,
@@ -213,10 +212,49 @@ class MarketClassifier extends EventEmitter {
       };
     }
 
-    // 🚫 NO SIGNAL - Conditions not met for either strategy
-    console.log(`❌ NO SIGNAL: Neither Trifecta nor Absorption conditions met`);
+    // 🔥 PRESSURE SPIKE SIGNAL (Direction Neutral - Volatility Warning)
+    // Requires: HIGH pressure + MID liquidity + WEAK momentum
+    const midLiquidityThreshold = this.liquidityThreshold * 0.5; // 50k
+    const pressureSpikeConditions = {
+      pressure: askToBidRatio >= this.pressureThreshold,           // > 3.0x
+      liquidity: totalBidVolume >= midLiquidityThreshold && totalBidVolume < this.liquidityThreshold, // 50k-100k (MID liquidity)
+      momentum: momentum > -0.2 && momentum < 0.2                 // Weak/neutral momentum range
+    };
+
+    const isPressureSpike = pressureSpikeConditions.pressure && pressureSpikeConditions.liquidity && pressureSpikeConditions.momentum;
+
+    if (isPressureSpike) {
+      console.log(`🔥 PRESSURE SPIKE CONDITIONS MET: Pressure=${askToBidRatio.toFixed(2)}x, Liquidity=${(totalBidVolume/1000).toFixed(1)}k, Momentum=${momentum.toFixed(3)}%`);
+      this.stats.pressureSpikes = (this.stats.pressureSpikes || 0) + 1;
+
+      return {
+        type: 'PRESSURE_SPIKE_SIGNAL',
+        strategy: 'NEUTRAL',
+        confidence: 'HIGH',
+        phenomenon: 'VOLATILITY_BREAKOUT_PENDING',
+        description: 'High pressure in mid-liquidity zone - volatility breakout imminent',
+        symbol: marketData.symbol || this.symbol || 'UNKNOWN',
+        exchange: 'BINANCE',
+        currentPrice: marketData.currentPrice,
+        askToBidRatio: marketData.askToBidRatio,
+        totalBidVolume: marketData.totalBidVolume,
+        totalAskVolume: marketData.totalAskVolume,
+        timestamp: marketData.timestamp,
+        momentum,
+        classification: {
+          pressure: pressureSpikeConditions.pressure,
+          liquidity: pressureSpikeConditions.liquidity,
+          momentum: pressureSpikeConditions.momentum,
+          expectedOutcome: 'VOLATILITY_BREAKOUT'
+        }
+      };
+    }
+
+    // 🚫 NO SIGNAL - Conditions not met for any strategy
+    console.log(`❌ NO SIGNAL: No signal conditions met`);
     console.log(`   Trifecta: P=${trifectaConditions.pressure ? '✅' : '❌'} L=${trifectaConditions.liquidity ? '✅' : '❌'} M=${trifectaConditions.momentum ? '✅' : '❌'} (need P>3x, L≥100k, M≤-0.3%)`);
     console.log(`   Squeeze:  P=${squeezeConditions.pressure ? '✅' : '❌'} L=${squeezeConditions.liquidity ? '✅' : '❌'} M=${squeezeConditions.momentum ? '✅' : '❌'} (need P>3x, L<50k, -0.2%<M<0.2%)`);
+    console.log(`   Pressure: P=${pressureSpikeConditions.pressure ? '✅' : '❌'} L=${pressureSpikeConditions.liquidity ? '✅' : '❌'} M=${pressureSpikeConditions.momentum ? '✅' : '❌'} (need P>3x, 50k<L<100k, -0.2%<M<0.2%)`);
     return null;
   }
 

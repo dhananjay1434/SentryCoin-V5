@@ -185,7 +185,22 @@ runTest(
   null  // Should not fire either signal
 );
 
-// Test 9: Extreme Trifecta Conditions (SHOULD FIRE)
+// Test 9: Perfect Pressure Spike Conditions (SHOULD FIRE)
+runTest(
+  'Perfect Pressure Spike - High pressure + Mid liquidity + Weak momentum',
+  {
+    askToBidRatio: 3.5,           // Above 3.0 threshold
+    totalBidVolume: 75000,        // Between 50k and 100k (MID liquidity)
+    totalAskVolume: 262500,       // Ask volume (3.5x ratio)
+    currentPrice: 0.162,
+    momentum: -0.1,               // Weak momentum (-0.2% to +0.2%)
+    symbol: 'SPKUSDT'
+  },
+  'SIGNAL',
+  'PRESSURE_SPIKE_SIGNAL'
+);
+
+// Test 10: Extreme Trifecta Conditions (SHOULD FIRE)
 runTest(
   'Extreme Trifecta Conditions - Very high liquidity + Strong momentum',
   {

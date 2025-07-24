@@ -89,7 +89,80 @@ class FlashCrashAlerter {
     const confidence = data.confidence || 'HIGH';
     const version = algorithmVersion || 'v2.0';
 
-    // Trifecta Algorithm (v3.0) formatting
+    // SentryCoin v4.0 Signal Formatting
+    if (signalType === 'TRIFECTA_CONVICTION_SIGNAL') {
+      return `🚨 *SENTRYCOIN v4.0 TRIFECTA CONVICTION* 🚨
+
+📊 *Asset:* ${symbol} (BINANCE)
+💰 *Current Price:* $${currentPrice.toFixed(6)}
+⚠️ *Strategy:* SHORT (${confidence} Confidence)
+🎯 *Phenomenon:* LIQUIDITY CASCADE
+
+🔥 *TRIFECTA CONDITIONS MET:*
+• **Pressure:** ${askToBidRatio.toFixed(2)}x ✅ (≥3.0x)
+• **Liquidity:** ${formatVolume(totalBidVolume)} ✅ (≥100k HIGH)
+• **Momentum:** ${momentum.toFixed(3)}% ✅ (≤-0.3% STRONG)
+
+📈 *Market Analysis:*
+High liquidity being overwhelmed by massive sell pressure. Classic flash crash setup with strong downward momentum.
+
+🎯 *Expected Outcome:* CONTINUED DECLINE
+⚡ *Action:* Consider SHORT position or protective measures
+🛡️ *Risk:* HIGH - Liquidity cascade in progress
+
+⏰ *Time:* ${timestamp}
+🤖 *Engine:* SentryCoin v4.0 (Binance Edition)`;
+    }
+
+    if (signalType === 'ABSORPTION_SQUEEZE_SIGNAL') {
+      return `🔄 *SENTRYCOIN v4.0 ABSORPTION SQUEEZE* 🔄
+
+📊 *Asset:* ${symbol} (BINANCE)
+💰 *Current Price:* $${currentPrice.toFixed(6)}
+⚠️ *Strategy:* LONG (${confidence} Confidence)
+🎯 *Phenomenon:* FORCED ABSORPTION
+
+🔄 *SQUEEZE CONDITIONS MET:*
+• **Pressure:** ${askToBidRatio.toFixed(2)}x ✅ (≥3.0x)
+• **Liquidity:** ${formatVolume(totalBidVolume)} ✅ (<50k LOW)
+• **Momentum:** ${momentum.toFixed(3)}% ✅ (-0.2% to +0.2% WEAK)
+
+📈 *Market Analysis:*
+Thin liquidity absorbing sell pressure with weak momentum. Sellers being absorbed by resilient buyers.
+
+🎯 *Expected Outcome:* MEAN REVERSION UP
+⚡ *Action:* Consider LONG position on absorption
+🛡️ *Risk:* MEDIUM - Forced absorption pattern
+
+⏰ *Time:* ${timestamp}
+🤖 *Engine:* SentryCoin v4.0 (Binance Edition)`;
+    }
+
+    if (signalType === 'PRESSURE_SPIKE_SIGNAL') {
+      return `🔥 *SENTRYCOIN v4.0 PRESSURE SPIKE* 🔥
+
+📊 *Asset:* ${symbol} (BINANCE)
+💰 *Current Price:* $${currentPrice.toFixed(6)}
+⚠️ *Strategy:* NEUTRAL (${confidence} Confidence)
+🎯 *Phenomenon:* VOLATILITY BREAKOUT PENDING
+
+🔥 *PRESSURE SPIKE CONDITIONS MET:*
+• **Pressure:** ${askToBidRatio.toFixed(2)}x ✅ (≥3.0x)
+• **Liquidity:** ${formatVolume(totalBidVolume)} ✅ (50k-100k MID)
+• **Momentum:** ${momentum.toFixed(3)}% ✅ (-0.2% to +0.2% WEAK)
+
+📈 *Market Analysis:*
+High pressure building in mid-liquidity zone. Market is coiled and ready to break in either direction.
+
+🎯 *Expected Outcome:* VOLATILITY BREAKOUT
+⚡ *Action:* Prepare for directional breakout - high volatility imminent
+🛡️ *Risk:* HIGH - Explosive move pending
+
+⏰ *Time:* ${timestamp}
+🤖 *Engine:* SentryCoin v4.0 (Binance Edition)`;
+    }
+
+    // Legacy Trifecta Algorithm (v3.0) formatting - fallback
     if (signalType === 'TRIFECTA' && version === 'v3.0') {
       const pressureCondition = askToBidRatio > 3.0;
       const liquidityCondition = totalBidVolume < 100000;

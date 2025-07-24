@@ -37,6 +37,7 @@ class SentryCoinEngine {
       totalClassifications: 0,
       trifectaSignals: 0,
       squeezeSignals: 0,
+      pressureSpikes: 0,
       systemUptime: 0
     };
     
@@ -101,6 +102,13 @@ class SentryCoinEngine {
       this.stats.squeezeSignals++;
       this.squeezeTrader.handleSqueezeSignal(signal);
       this.reporter.recordSqueezeSignal(signal);
+    });
+
+    this.classifier.on('PRESSURE_SPIKE_SIGNAL', (signal) => {
+      this.stats.pressureSpikes++;
+      // Pressure spikes are volatility warnings - no trading action but important alerts
+      this.reporter.recordPressureSpike(signal);
+      console.log(`🔥 PRESSURE SPIKE DETECTED: ${signal.description}`);
     });
 
     // Connect trading modules to reporter
@@ -226,7 +234,7 @@ class SentryCoinEngine {
   logPeriodicUpdate(ratio, bidVolume, askVolume, price, momentum) {
     const istTime = getISTTime();
     console.log(`📊 [${istTime}] Ratio: ${ratio.toFixed(2)}x | Price: ${formatPriceWithSymbol(price)} | Momentum: ${momentum.toFixed(3)}%`);
-    console.log(`   💰 Bid: ${bidVolume.toFixed(0)} | Ask: ${askVolume.toFixed(0)} | Signals: T:${this.stats.trifectaSignals} S:${this.stats.squeezeSignals}`);
+    console.log(`   💰 Bid: ${bidVolume.toFixed(0)} | Ask: ${askVolume.toFixed(0)} | Signals: T:${this.stats.trifectaSignals} S:${this.stats.squeezeSignals} P:${this.stats.pressureSpikes}`);
   }
 
   /**

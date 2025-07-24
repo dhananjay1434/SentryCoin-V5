@@ -28,6 +28,7 @@ class DetailedReporter {
       classifications: [],
       trifectaSignals: [],
       squeezeSignals: [],
+      pressureSpikes: [],
       trades: [],
       performance: {
         hourly: [],
@@ -127,6 +128,36 @@ class DetailedReporter {
     this.saveToCloud(`trifecta_signal_${record.id}`, record);
     
     console.log(`📊 Trifecta signal recorded: ${record.id}`);
+  }
+
+  /**
+   * Record a Pressure Spike signal
+   */
+  recordPressureSpike(signal) {
+    const record = {
+      id: signal.id || generateSignalId(),
+      timestamp: new Date().toISOString(),
+      istTime: getISTTime(),
+      symbol: signal.symbol,
+      type: 'PRESSURE_SPIKE',
+      strategy: 'NEUTRAL',
+      confidence: signal.confidence,
+      phenomenon: signal.phenomenon,
+      description: signal.description,
+      exchange: signal.exchange,
+      currentPrice: signal.currentPrice,
+      askToBidRatio: signal.askToBidRatio,
+      totalBidVolume: signal.totalBidVolume,
+      totalAskVolume: signal.totalAskVolume,
+      momentum: signal.momentum,
+      classification: signal.classification
+    };
+
+    this.reportData.pressureSpikes.push(record);
+    this.saveToMemory(`${signal.symbol}_pressure_spike_${Date.now()}`, record);
+
+    console.log(`🔥 PRESSURE SPIKE RECORDED: ${signal.symbol} at $${signal.currentPrice.toFixed(6)}`);
+    console.log(`   📊 Pressure: ${signal.askToBidRatio.toFixed(2)}x | Liquidity: ${(signal.totalBidVolume/1000).toFixed(1)}k | Momentum: ${signal.momentum.toFixed(3)}%`);
   }
 
   /**
