@@ -49,34 +49,45 @@ class SentryCoinMinimal {
     console.log('🛡️ SentryCoin Minimal - Telegram Alert System');
     console.log('📱 Focused on reliable Telegram notifications');
     console.log('═'.repeat(60));
-    
+
     try {
       // Validate environment
+      console.log('🔍 Validating environment variables...');
       const validation = validateEnvironmentVariables();
       if (!validation.isValid) {
         console.warn('⚠️ Some environment variables missing, using defaults');
+        console.warn('📋 Validation details:', validation);
+      } else {
+        console.log('✅ Environment validation passed');
       }
 
       // Initialize core components
+      console.log('🔧 Initializing Flash Crash Predictor...');
       this.predictor = new FlashCrashPredictor(this.symbol);
       console.log('✅ Flash crash predictor initialized');
 
+      console.log('🔧 Initializing Market Classifier...');
       this.classifier = new MarketClassifier(this.symbol);
       console.log('✅ Market classifier initialized');
 
+      console.log('🔧 Initializing Trifecta Trader...');
       this.trifectaTrader = new TrifectaTrader(this.symbol);
       console.log('✅ Trifecta trader initialized (Telegram alerts enabled)');
 
+      console.log('🔧 Initializing Reporter...');
       this.reporter = new DetailedReporter(this.symbol);
       console.log('✅ Reporter initialized');
 
       // Set up event listeners
+      console.log('🔧 Setting up event listeners...');
       this.setupEventListeners();
       console.log('✅ Event listeners configured');
 
+      console.log('✅ All components initialized successfully');
       return true;
     } catch (error) {
       console.error('❌ Initialization failed:', error.message);
+      console.error('📋 Error details:', error.stack);
       return false;
     }
   }
@@ -112,22 +123,29 @@ class SentryCoinMinimal {
 
   async start() {
     try {
+      console.log('🚀 Starting SentryCoin Minimal system...');
+
+      console.log('📋 Step 1: Initialize components...');
       const initialized = await this.initialize();
       if (!initialized) {
         throw new Error('System initialization failed');
       }
 
+      console.log('📋 Step 2: Starting WebSocket connection...');
       // Start the predictor (WebSocket connection)
       await this.predictor.start();
       this.isRunning = true;
-      
+
       console.log('\n🎉 SentryCoin Minimal is operational!');
       console.log('📱 Telegram alerts: ACTIVE');
       console.log('🎯 Monitoring for Trifecta signals...');
-      
+      console.log(`📊 Monitoring symbol: ${this.symbol}`);
+      console.log(`⏰ Started at: ${new Date().toISOString()}`);
+
       return true;
     } catch (error) {
       console.error('❌ Failed to start system:', error.message);
+      console.error('📋 Error stack:', error.stack);
       this.isRunning = false;
       return false;
     }
@@ -220,25 +238,38 @@ async function main() {
     console.log(`🌐 SentryCoin Minimal API server running on port ${port}`);
     console.log(`📡 Health check: http://localhost:${port}/health`);
     console.log(`📊 Status: http://localhost:${port}/status`);
+    console.log(`⏰ Server started at: ${new Date().toISOString()}`);
   });
 
   // Initialize and start the SentryCoin system
+  console.log('\n🚀 Initializing SentryCoin Minimal System...');
+  console.log(`📋 Environment check:`);
+  console.log(`   TELEGRAM_BOT_TOKEN: ${process.env.TELEGRAM_BOT_TOKEN ? '✅ Set' : '❌ Missing'}`);
+  console.log(`   TELEGRAM_CHAT_ID: ${process.env.TELEGRAM_CHAT_ID ? '✅ Set' : '❌ Missing'}`);
+  console.log(`   SYMBOL: ${process.env.SYMBOL || 'SPKUSDT'}`);
+
   try {
+    console.log('🔧 Creating SentryCoin instance...');
     sentryCoinSystem = new SentryCoinMinimal();
+
+    console.log('🔧 Starting system components...');
     const started = await sentryCoinSystem.start();
-    
+
     if (started) {
       console.log('\n🎉 SentryCoin Minimal is fully operational!');
       console.log('📱 Telegram alerts: ENABLED');
       console.log('🎯 Monitoring: ACTIVE');
       console.log('⚡ Ready to send alerts for Trifecta signals!');
+      console.log(`📊 System status: ${JSON.stringify(sentryCoinSystem.getSystemStatus(), null, 2)}`);
     } else {
       console.error('\n❌ Failed to start SentryCoin Minimal');
       console.log('🌐 API server will continue running for diagnostics');
+      console.log(`📊 System status: ${JSON.stringify(sentryCoinSystem.getSystemStatus(), null, 2)}`);
     }
-    
+
   } catch (error) {
     console.error('❌ Fatal error during startup:', error.message);
+    console.error('📋 Error stack:', error.stack);
     console.log('🌐 API server will continue running for diagnostics');
   }
 
