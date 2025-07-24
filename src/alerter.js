@@ -59,7 +59,6 @@ class FlashCrashAlerter {
       console.log(`📤 Sending Telegram alert to chat ${this.chatId}...`);
 
       await this.bot.sendMessage(this.chatId, message, {
-        parse_mode: 'Markdown',
         disable_web_page_preview: true
       });
 
@@ -113,29 +112,29 @@ class FlashCrashAlerter {
 
     // SentryCoin v4.0 Trifecta Conviction Alert
     if (alertType === 'TRIFECTA_CONVICTION' || signalType === 'TRIFECTA_CONVICTION_SIGNAL') {
-      return `🚨 *SENTRYCOIN v4.0 TRIFECTA CONVICTION* 🚨
+      return `🚨 SENTRYCOIN v4.0 TRIFECTA CONVICTION 🚨
 
-📊 *Asset:* ${symbol}
-💰 *Current Price:* $${currentPrice.toFixed(6)}
-⚠️ *Risk Level:* ${riskLevel}
+📊 Asset: ${symbol}
+💰 Current Price: $${currentPrice.toFixed(6)}
+⚠️ Risk Level: ${riskLevel}
 
-📈 *Market Analysis:*
+📈 Market Analysis:
 • Ask/Bid Ratio: ${askToBidRatio.toFixed(2)}x
 • Total Bid Volume: ${formatVolume(totalBidVolume)}
 • Total Ask Volume: ${formatVolume(totalAskVolume)}
 • Price Momentum: ${momentum.toFixed(2)}%
 
-🎯 *Signal Analysis:*
+🎯 Signal Analysis:
 • Type: LIQUIDITY CASCADE
 • Confidence: ${finalConfidence}
 • Strategy: SHORT RECOMMENDED
 • Expected: CONTINUED DECLINE
 
-⚡ *Implication:* Strong negative momentum with severe order book imbalance
-🛡️ *Action:* HIGH probability flash crash - Consider protective measures
+⚡ Implication: Strong negative momentum with severe order book imbalance
+🛡️ Action: HIGH probability flash crash - Consider protective measures
 
-⏰ *Time:* ${timestamp}
-🤖 *Engine:* SentryCoin v4.0 Dual-Strategy Engine`;
+⏰ Time: ${timestamp}
+🤖 Engine: SentryCoin v4.0 Dual-Strategy Engine`;
     }
 
     // Trifecta Algorithm (v3.0) formatting - legacy support
