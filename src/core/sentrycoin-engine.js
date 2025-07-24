@@ -16,6 +16,7 @@ import ShakeoutDetector from '../strategies/shakeout-detector.js';
 import DetailedReporter from '../reporting/detailed-reporter.js';
 import ManipulationDetector from '../services/manipulation-detector.js';
 import OnChainMonitor from '../services/onchain-monitor.js';
+import WashTradeDetector from '../services/wash-trade-detector.js';
 import cloudStorage from '../services/cloud-storage.js';
 import { getISTTime, formatPrice, formatPriceWithSymbol } from '../utils/index.js';
 
@@ -77,16 +78,21 @@ class SentryCoinEngine {
       this.shakeoutDetector = new ShakeoutDetector(this.symbol);
       console.log('✅ v4.1 Strategy modules initialized');
 
-      // v4.4 FORENSIC INTELLIGENCE: Initialize manipulation detection
-      if (process.env.ENABLE_MANIPULATION_DETECTION === 'true') {
-        this.manipulationDetector = new ManipulationDetector({ symbol: this.symbol });
-        this.onChainMonitor = new OnChainMonitor({ symbol: this.symbol });
-        console.log('✅ v4.4 Manipulation detection initialized');
+      // v4.6 PREDATORY INTELLIGENCE: Always initialize (critical for strategy)
+      this.manipulationDetector = new ManipulationDetector({ symbol: this.symbol });
+      this.onChainMonitor = new OnChainMonitor({ symbol: this.symbol });
+      this.washTradeDetector = new WashTradeDetector({ symbol: this.symbol });
+      console.log('✅ v4.6 Predatory intelligence suite initialized');
 
-        // Start on-chain monitoring
-        await this.onChainMonitor.start();
-        console.log('✅ On-chain whale monitoring started');
-      }
+      // Start predatory whale monitoring (always enabled)
+      await this.onChainMonitor.start();
+      console.log('✅ Predatory whale monitoring started');
+
+      // Set up wash trade detection events
+      this.washTradeDetector.on('WASH_TRADING_DETECTED', (data) => {
+        console.log(`🚫 WASH TRADING DETECTED: Score ${data.score}% - Trading temporarily disabled`);
+        this.onChainMonitor.enterDefensiveMode('Wash trading detected');
+      });
 
       // Initialize detailed reporter
       this.reporter = new DetailedReporter(this.symbol);
@@ -116,10 +122,30 @@ class SentryCoinEngine {
   setupEventListeners() {
     // Connect classifier to v4.1 strategy modules and reporter
 
-    // CASCADE_HUNTER: Active SHORT trading with FORENSIC INTELLIGENCE
+    // CASCADE_HUNTER: v4.6 PREDATORY SHORT trading with WHALE INTELLIGENCE
     this.classifier.on('CASCADE_HUNTER_SIGNAL', (signal) => {
       this.stats.cascadeHunterSignals++;
       this.stats.totalClassifications = this.classifier.stats.totalClassifications;
+
+      // v4.6 CRITICAL: Check wash trading first (ignore fake volume)
+      const washAssessment = this.washTradeDetector.getWashAssessment();
+      if (washAssessment.shouldDisableTrading) {
+        console.log(`🚫 CASCADE_HUNTER SIGNAL BLOCKED: Wash trading detected (${washAssessment.washScore.toFixed(1)}%)`);
+        signal.blockedReason = `Wash trading score: ${washAssessment.washScore.toFixed(1)}%`;
+        this.reporter.recordCascadeSignal(signal);
+        return;
+      }
+
+      // v4.6: Check predatory system state (only trade in HUNTING mode)
+      const systemState = this.onChainMonitor.getSystemState();
+      if (!systemState.allowTrading) {
+        console.log(`🚫 CASCADE_HUNTER SIGNAL BLOCKED: System in ${systemState.state} mode - no whale activity`);
+        signal.blockedReason = `System state: ${systemState.state}`;
+        this.reporter.recordCascadeSignal(signal);
+        return;
+      }
+
+      console.log(`🎯 CASCADE_HUNTER SIGNAL APPROVED: Predatory mode ${systemState.state} active`);
 
       // CRITICAL FIX: Check for conflicting signals before trading
       if (this.shouldVetoCascadeSignal()) {
@@ -156,7 +182,8 @@ class SentryCoinEngine {
         signal.manipulationRisk = manipulationAssessment.riskLevel;
       }
 
-      this.cascadeHunterTrader.handleCascadeSignal(signal);
+      // v4.5: Pass on-chain monitor for whale threat assessment
+      this.cascadeHunterTrader.handleCascadeSignal(signal, this.onChainMonitor);
       this.reporter.recordCascadeSignal(signal);
     });
 

@@ -85,9 +85,9 @@ class CascadeHunterTrader extends EventEmitter {
   }
 
   /**
-   * Handle incoming CASCADE_HUNTER signals (v4.1) - WITH CRITICAL SAFETY CHECKS
+   * Handle incoming CASCADE_HUNTER signals (v4.5) - WITH WHALE THREAT INTELLIGENCE
    */
-  async handleCascadeSignal(signal) {
+  async handleCascadeSignal(signal, onChainMonitor = null) {
     this.stats.signalsReceived++;
 
     const istTime = getISTTime();
@@ -102,6 +102,17 @@ class CascadeHunterTrader extends EventEmitter {
       await this.logSignal(signal);
       return;
     }
+
+    // v4.5 CRITICAL: Whale threat assessment FIRST
+    const threatAssessment = this.assessWhaleThreat(onChainMonitor);
+    if (!threatAssessment.allowTrade) {
+      console.log(`🚫 WHALE THREAT VETO: ${threatAssessment.reason}`);
+      await this.logSignal(signal, { vetoReason: threatAssessment.reason });
+      return;
+    }
+
+    console.log(`🐋 Whale Threat: ${threatAssessment.level} (${threatAssessment.confidence})`);
+    signal.whaleThreatLevel = threatAssessment.level;
 
     // PROFESSIONAL CHECK 1: Quality over quantity
     if (this.activePositions.size >= this.maxConcurrentPositions) {
@@ -225,6 +236,58 @@ class CascadeHunterTrader extends EventEmitter {
       // TODO: Implement actual trading API calls
       console.log(`🔴 LIVE TRADING: Would execute real short order`);
       return position;
+    }
+  }
+
+  /**
+   * v4.6 PREDATORY WHALE ASSESSMENT - State machine intelligence for trade decisions
+   */
+  assessWhaleThreat(onChainMonitor) {
+    if (!onChainMonitor) {
+      return {
+        level: 'UNKNOWN',
+        allowTrade: false,
+        confidence: 'LOW',
+        reason: 'No on-chain monitoring available - SYSTEM COMPROMISED'
+      };
+    }
+
+    const systemState = onChainMonitor.getSystemState();
+
+    switch (systemState.state) {
+      case 'HUNTING':
+        return {
+          level: 'HUNTING',
+          allowTrade: true,  // HUNTING mode = whale dump detected = PREDATORY OPPORTUNITY
+          confidence: 'HIGH',
+          reason: `Hunt mode active - ${Math.floor(systemState.huntModeTimeRemaining/60)} minutes remaining`,
+          huntTimeRemaining: systemState.huntModeTimeRemaining
+        };
+
+      case 'STRIKE':
+        return {
+          level: 'STRIKE',
+          allowTrade: true,  // STRIKE mode = active execution phase
+          confidence: 'HIGH',
+          reason: 'Strike mode - executing predatory strategy'
+        };
+
+      case 'DEFENSIVE':
+        return {
+          level: 'DEFENSIVE',
+          allowTrade: false, // DEFENSIVE mode = protect existing positions
+          confidence: 'HIGH',
+          reason: 'Defensive mode - protecting positions from counter-manipulation'
+        };
+
+      case 'PATIENT':
+      default:
+        return {
+          level: 'PATIENT',
+          allowTrade: false, // PATIENT mode = no whale activity = WAIT
+          confidence: 'HIGH',
+          reason: 'Patient mode - no whale activity detected, ignoring fake volume'
+        };
     }
   }
 
