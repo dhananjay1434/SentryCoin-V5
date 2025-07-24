@@ -285,6 +285,25 @@ class SqueezeTrader extends EventEmitter {
   }
 
   /**
+   * Update all active positions with current price
+   */
+  updatePositions(currentPrice) {
+    if (!currentPrice || this.activePositions.size === 0) {
+      return;
+    }
+
+    for (const [positionId, position] of this.activePositions) {
+      if (position.status === 'OPEN') {
+        position.currentPrice = currentPrice;
+        position.unrealizedPnL = this.calculateUnrealizedPnL(position, currentPrice);
+
+        // Check for stop-loss, take-profit, or time exit
+        this.checkExitConditions(position, currentPrice);
+      }
+    }
+  }
+
+  /**
    * Get trading performance statistics
    */
   getStats() {
