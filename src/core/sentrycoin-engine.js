@@ -35,6 +35,11 @@ class SentryCoinEngine {
     // System state
     this.isRunning = false;
     this.startTime = null;
+
+    // HFT-OPTIMIZED: Cross-signal validation state
+    this.lastShakeoutSignalTime = 0;
+    this.enableSignalVeto = process.env.ENABLE_CONFLICT_VETO === 'true';
+    this.conflictVetoDurationMs = parseInt(process.env.CONFLICT_VETO_DURATION_MILLISECONDS || '5000');
     
     // v4.1 Performance statistics
     this.stats = {
@@ -98,10 +103,19 @@ class SentryCoinEngine {
   setupEventListeners() {
     // Connect classifier to v4.1 strategy modules and reporter
 
-    // CASCADE_HUNTER: Active SHORT trading for Distribution Phase
+    // CASCADE_HUNTER: Active SHORT trading for Distribution Phase - WITH VETO LOGIC
     this.classifier.on('CASCADE_HUNTER_SIGNAL', (signal) => {
       this.stats.cascadeHunterSignals++;
       this.stats.totalClassifications = this.classifier.stats.totalClassifications;
+
+      // CRITICAL FIX: Check for conflicting signals before trading
+      if (this.shouldVetoCascadeSignal()) {
+        console.log(`🚫 CASCADE signal VETOED due to recent SHAKEOUT detection`);
+        this.cascadeHunterTrader.enterDefensivePosture('Recent SHAKEOUT signal detected');
+        this.reporter.recordCascadeSignal({...signal, status: 'VETOED'});
+        return;
+      }
+
       this.cascadeHunterTrader.handleCascadeSignal(signal);
       this.reporter.recordCascadeSignal(signal);
     });
@@ -114,10 +128,17 @@ class SentryCoinEngine {
       this.reporter.recordCoilSignal(signal);
     });
 
-    // SHAKEOUT_DETECTOR: Alert-only for Stop Hunt Phase
+    // SHAKEOUT_DETECTOR: Alert-only for Stop Hunt Phase - WITH DEFENSIVE TRIGGER
     this.classifier.on('SHAKEOUT_DETECTOR_SIGNAL', (signal) => {
       this.stats.shakeoutDetectorSignals++;
       this.stats.totalClassifications = this.classifier.stats.totalClassifications;
+
+      // CRITICAL FIX: Record shakeout timing for veto logic
+      this.lastShakeoutSignalTime = Date.now();
+
+      // CRITICAL FIX: Trigger defensive posture immediately
+      this.cascadeHunterTrader.enterDefensivePosture('SHAKEOUT signal detected - potential reversal');
+
       this.shakeoutDetector.handleShakeoutSignal(signal);
       this.reporter.recordShakeoutSignal(signal);
     });
@@ -140,6 +161,26 @@ class SentryCoinEngine {
     });
 
     console.log('🔗 v4.1 Event listeners configured');
+  }
+
+  /**
+   * HFT-OPTIMIZED: Smart conflict resolution (not blanket blocking)
+   */
+  shouldVetoCascadeSignal() {
+    if (!this.enableSignalVeto) {
+      return false;
+    }
+
+    const now = Date.now();
+    const timeSinceShakeout = now - this.lastShakeoutSignalTime;
+
+    if (timeSinceShakeout < this.conflictVetoDurationMs) {
+      const remainingVeto = Math.ceil((this.conflictVetoDurationMs - timeSinceShakeout) / 1000);
+      console.log(`⚠️ CONFLICT VETO active (${remainingVeto} seconds remaining) - CASCADE signals blocked`);
+      return true;
+    }
+
+    return false;
   }
 
   /**

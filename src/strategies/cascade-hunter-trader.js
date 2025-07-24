@@ -26,9 +26,34 @@ class CascadeHunterTrader extends EventEmitter {
     // v4.1 CASCADE_HUNTER Trading configuration
     this.enabled = process.env.CASCADE_TRADING_ENABLED === 'true';
     this.paperTrading = process.env.PAPER_TRADING !== 'false'; // Default to paper trading
-    this.maxPositionSize = parseFloat(process.env.CASCADE_MAX_POSITION || '1000');
-    this.stopLossPercent = parseFloat(process.env.CASCADE_STOP_LOSS || '2.0');
-    this.takeProfitPercent = parseFloat(process.env.CASCADE_TAKE_PROFIT || '5.0');
+    this.maxPositionSize = parseFloat(process.env.CASCADE_MAX_POSITION || '500');
+    this.stopLossPercent = parseFloat(process.env.CASCADE_STOP_LOSS || '1.5');
+    this.takeProfitPercent = parseFloat(process.env.CASCADE_TAKE_PROFIT || '3.0');
+
+    // HFT-OPTIMIZED: Smart risk controls (not frequency limits)
+    this.maxConcurrentPositions = parseInt(process.env.MAX_ACTIVE_POSITIONS || '25');
+    this.maxCorrelatedPositions = parseInt(process.env.MAX_CORRELATED_POSITIONS || '8');
+    this.signalCooldownMs = parseInt(process.env.SIGNAL_COOLDOWN_MILLISECONDS || '500');
+    this.maxExposurePercentage = parseFloat(process.env.MAX_EXPOSURE_PERCENTAGE || '15');
+    this.positionDiversityRequired = process.env.POSITION_DIVERSITY_REQUIRED === 'true';
+
+    // CRITICAL FIX: Dynamic stop-loss controls
+    this.enableTrailingStop = process.env.ENABLE_TRAILING_STOP_LOSS === 'true';
+    this.trailProfitTrigger = parseFloat(process.env.TRAIL_PROFIT_TRIGGER || '1.5');
+    this.trailDistance = parseFloat(process.env.TRAIL_DISTANCE || '1.0');
+
+    // CRITICAL FIX: Cross-signal validation
+    this.enableConflictVeto = process.env.ENABLE_CONFLICT_VETO === 'true';
+    this.enableDefensivePosture = process.env.ENABLE_DEFENSIVE_POSTURE === 'true';
+
+    // CRITICAL FIX: Signal quality scaling (v4.2)
+    this.enableQualityScaling = process.env.CASCADE_ENABLE_QUALITY_SCALING === 'true';
+    this.highQualityLiquidity = parseInt(process.env.CASCADE_HIGH_QUALITY_LIQUIDITY || '800000');
+    this.mediumQualityLiquidity = parseInt(process.env.CASCADE_MEDIUM_QUALITY_LIQUIDITY || '600000');
+    this.lowQualityLiquidity = parseInt(process.env.CASCADE_LOW_QUALITY_LIQUIDITY || '400000');
+
+    // CRITICAL FIX: Timing controls
+    this.lastPositionTime = 0;
     
     // Position tracking
     this.activePositions = new Map();
@@ -60,7 +85,7 @@ class CascadeHunterTrader extends EventEmitter {
   }
 
   /**
-   * Handle incoming CASCADE_HUNTER signals (v4.1)
+   * Handle incoming CASCADE_HUNTER signals (v4.1) - WITH CRITICAL SAFETY CHECKS
    */
   async handleCascadeSignal(signal) {
     this.stats.signalsReceived++;
@@ -78,8 +103,47 @@ class CascadeHunterTrader extends EventEmitter {
       return;
     }
 
+    // HFT-OPTIMIZED FIX 1: Smart position limits (not blanket limits)
+    if (this.activePositions.size >= this.maxConcurrentPositions) {
+      console.log(`🚫 TOTAL POSITION LIMIT REACHED (${this.activePositions.size}/${this.maxConcurrentPositions}) - Signal ignored`);
+      await this.logSignal(signal);
+      return;
+    }
+
+    // HFT-OPTIMIZED FIX 2: Correlation-based limits (not frequency limits)
+    const correlatedPositions = this.getCorrelatedPositions(signal.type);
+    if (correlatedPositions.length >= this.maxCorrelatedPositions) {
+      console.log(`🚫 CORRELATED POSITION LIMIT REACHED (${correlatedPositions.length}/${this.maxCorrelatedPositions}) for ${signal.type} - Signal ignored`);
+      await this.logSignal(signal);
+      return;
+    }
+
+    // HFT-OPTIMIZED FIX 3: Minimal cooldown (microsecond-friendly)
+    const now = Date.now();
+    const timeSinceLastPosition = now - this.lastPositionTime;
+
+    if (timeSinceLastPosition < this.signalCooldownMs) {
+      // Very short cooldown - doesn't kill HFT speed
+      await this.logSignal(signal);
+      return;
+    }
+
+    // CRITICAL FIX 3: Signal quality assessment
+    const signalQuality = this.assessSignalQuality(signal);
+    if (signalQuality === 'REJECT') {
+      console.log(`🚫 SIGNAL QUALITY TOO LOW - Signal rejected`);
+      await this.logSignal(signal);
+      return;
+    }
+
+    // Add quality to signal for position sizing
+    signal.qualityGrade = signalQuality;
+
     // Execute the short strategy for Distribution Phase
     await this.executeShortStrategy(signal);
+
+    // Update timing
+    this.lastPositionTime = now;
 
     // Send premium alert to subscribers
     await this.sendPremiumAlert(signal);
@@ -161,11 +225,72 @@ class CascadeHunterTrader extends EventEmitter {
   }
 
   /**
-   * Calculate position size based on risk management
+   * CRITICAL FIX: Assess signal quality based on liquidity depth (v4.2)
+   */
+  assessSignalQuality(signal) {
+    if (!this.enableQualityScaling) {
+      return 'MEDIUM'; // Default if quality scaling disabled
+    }
+
+    const liquidity = signal.totalBidVolume;
+
+    if (liquidity >= this.highQualityLiquidity) {
+      return 'HIGH';      // 800k+ liquidity
+    } else if (liquidity >= this.mediumQualityLiquidity) {
+      return 'MEDIUM';    // 600k+ liquidity
+    } else if (liquidity >= this.lowQualityLiquidity) {
+      return 'LOW';       // 400k+ liquidity (minimum threshold)
+    } else {
+      return 'REJECT';    // Below 400k - too risky to trade
+    }
+  }
+
+  /**
+   * HFT-OPTIMIZED: Dynamic position sizing with exposure scaling
    */
   calculatePositionSize(signal) {
-    // Simple fixed size for now - can be enhanced with volatility-based sizing
-    return Math.min(this.maxPositionSize, this.maxPositionSize * signal.confidence === 'HIGH' ? 1.0 : 0.5);
+    let baseSize = this.maxPositionSize;
+
+    // HFT-OPTIMIZED: Scale position size based on signal quality
+    if (this.enableQualityScaling && signal.qualityGrade) {
+      switch (signal.qualityGrade) {
+        case 'HIGH':
+          baseSize = this.maxPositionSize * 1.0;
+          break;
+        case 'MEDIUM':
+          baseSize = this.maxPositionSize * 0.8;
+          break;
+        case 'LOW':
+          baseSize = this.maxPositionSize * 0.5;
+          break;
+        default:
+          baseSize = this.maxPositionSize * 0.3;
+      }
+    }
+
+    // HFT-OPTIMIZED: Dynamic scaling based on current exposure
+    const currentPositions = this.activePositions.size;
+    const exposureScaling = Math.max(0.2, 1 - (currentPositions / this.maxConcurrentPositions));
+
+    // Additional confidence scaling
+    const confidenceMultiplier = signal.confidence === 'HIGH' ? 1.0 : 0.8;
+
+    const finalSize = baseSize * exposureScaling * confidenceMultiplier;
+
+    return Math.min(this.maxPositionSize, finalSize);
+  }
+
+  /**
+   * HFT-OPTIMIZED: Get positions of same type (for correlation limits)
+   */
+  getCorrelatedPositions(signalType) {
+    const correlatedPositions = [];
+    for (const [id, position] of this.activePositions) {
+      if (position.status === 'OPEN' && position.strategy === signalType) {
+        correlatedPositions.push(position);
+      }
+    }
+    return correlatedPositions;
   }
 
   /**
@@ -343,7 +468,7 @@ class CascadeHunterTrader extends EventEmitter {
   }
 
   /**
-   * Update all active positions with current price
+   * CRITICAL FIX: Enhanced position monitoring with trailing stops
    */
   updatePositions(currentPrice) {
     if (!currentPrice || this.activePositions.size === 0) {
@@ -355,10 +480,69 @@ class CascadeHunterTrader extends EventEmitter {
         position.currentPrice = currentPrice;
         position.unrealizedPnL = this.calculateUnrealizedPnL(position, currentPrice);
 
+        // CRITICAL FIX: Implement trailing stop-loss
+        if (this.enableTrailingStop) {
+          this.updateTrailingStop(position, currentPrice);
+        }
+
         // Check for stop-loss or take-profit
         this.checkExitConditions(position, currentPrice);
       }
     }
+  }
+
+  /**
+   * CRITICAL FIX: Trailing stop-loss implementation (v4.2)
+   */
+  updateTrailingStop(position, currentPrice) {
+    if (position.type !== 'SHORT') return;
+
+    const pnlPercent = this.calculateUnrealizedPnL(position, currentPrice);
+
+    // Only trail when profit exceeds trigger threshold
+    if (pnlPercent > this.trailProfitTrigger) {
+      const trailDistance = this.trailDistance / 100;
+      const newStopLoss = currentPrice * (1 + trailDistance);
+
+      // For SHORT positions, new stop must be LOWER than current stop
+      if (newStopLoss < position.stopLoss) {
+        console.log(`📈 TRAILING STOP updated for ${position.id}: ${newStopLoss.toFixed(6)} (was ${position.stopLoss.toFixed(6)})`);
+        console.log(`   💰 Profit: ${pnlPercent.toFixed(2)}% | Trail trigger: ${this.trailProfitTrigger}%`);
+        position.stopLoss = newStopLoss;
+      }
+    }
+  }
+
+  /**
+   * CRITICAL FIX: Defensive posture when conflicting signals detected
+   */
+  enterDefensivePosture(reason = 'Conflicting signal detected') {
+    if (!this.enableDefensivePosture) return;
+
+    console.log(`🛡️ ENTERING DEFENSIVE POSTURE: ${reason}`);
+
+    let positionsAdjusted = 0;
+    for (const [positionId, position] of this.activePositions) {
+      if (position.status === 'OPEN' && position.type === 'SHORT') {
+        const pnlPercent = this.calculateUnrealizedPnL(position, position.currentPrice);
+
+        // Move stop to breakeven if in profit, or tighten if at loss
+        if (pnlPercent > 0) {
+          position.stopLoss = position.entryPrice; // Breakeven
+          console.log(`🛡️ Moved stop to BREAKEVEN for ${position.id}`);
+        } else {
+          // Tighten stop-loss by 50% if at loss
+          const tightenedStop = position.entryPrice * (1 + (this.stopLossPercent * 0.5) / 100);
+          if (tightenedStop < position.stopLoss) {
+            position.stopLoss = tightenedStop;
+            console.log(`🛡️ TIGHTENED stop-loss for ${position.id}: ${tightenedStop.toFixed(6)}`);
+          }
+        }
+        positionsAdjusted++;
+      }
+    }
+
+    console.log(`🛡️ Defensive posture applied to ${positionsAdjusted} positions`);
   }
 
   /**
