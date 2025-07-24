@@ -1,0 +1,329 @@
+{
+  "session": {
+    "id": "SIG_1753344970417_jsveuq5qn",
+    "symbol": "SPKUSDT",
+    "startTime": "2025-07-24T08:16:10.417Z",
+    "version": "4.0",
+    "algorithm": "Dual-Strategy Classification"
+  },
+  "classifications": [
+    {
+      "timestamp": "2025-07-24T08:16:12.424Z",
+      "istTime": "2025-07-24 13:46:12 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.127801,
+      "ratio": 4.679971572127463,
+      "bidVolume": 121008,
+      "askVolume": 566314,
+      "momentum": 0
+    },
+    {
+      "timestamp": "2025-07-24T08:16:13.411Z",
+      "istTime": "2025-07-24 13:46:13 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.1277895,
+      "ratio": 4.039746668008569,
+      "bidVolume": 139106,
+      "askVolume": 561953,
+      "momentum": -0.008998364645032217
+    },
+    {
+      "timestamp": "2025-07-24T08:16:14.414Z",
+      "istTime": "2025-07-24 13:46:14 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.1278975,
+      "ratio": 1.4047305756406654,
+      "bidVolume": 156556,
+      "askVolume": 219919,
+      "momentum": 0.0755080163691985
+    },
+    {
+      "timestamp": "2025-07-24T08:16:15.413Z",
+      "istTime": "2025-07-24 13:46:15 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.127829,
+      "ratio": 1.5066995723127414,
+      "bidVolume": 154786,
+      "askVolume": 233216,
+      "momentum": 0.02190906174443099
+    },
+    {
+      "timestamp": "2025-07-24T08:16:16.413Z",
+      "istTime": "2025-07-24 13:46:16 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.1278115,
+      "ratio": 1.4338822337739074,
+      "bidVolume": 142163,
+      "askVolume": 203845,
+      "momentum": 0.008215898154158907
+    },
+    {
+      "timestamp": "2025-07-24T08:16:17.413Z",
+      "istTime": "2025-07-24 13:46:17 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.127757,
+      "ratio": 1.1009083887627238,
+      "bidVolume": 173494,
+      "askVolume": 191001,
+      "momentum": -0.03442852559838225
+    },
+    {
+      "timestamp": "2025-07-24T08:16:18.491Z",
+      "istTime": "2025-07-24 13:46:18 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.127717,
+      "ratio": 1.8426058667842964,
+      "bidVolume": 145088,
+      "askVolume": 267340,
+      "momentum": -0.06572718523329296
+    },
+    {
+      "timestamp": "2025-07-24T08:16:19.414Z",
+      "istTime": "2025-07-24 13:46:19 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.127654,
+      "ratio": 2.037239481659137,
+      "bidVolume": 107574,
+      "askVolume": 219154,
+      "momentum": -0.11502257415826812
+    },
+    {
+      "timestamp": "2025-07-24T08:16:20.415Z",
+      "istTime": "2025-07-24 13:46:20 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.1275635,
+      "ratio": 1.8093548948009042,
+      "bidVolume": 115020,
+      "askVolume": 208112,
+      "momentum": -0.18583579158222674
+    },
+    {
+      "timestamp": "2025-07-24T08:16:21.413Z",
+      "istTime": "2025-07-24 13:46:21 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.127633,
+      "ratio": 1.3485367524713712,
+      "bidVolume": 153255,
+      "askVolume": 206670,
+      "momentum": -0.13145437046658592
+    },
+    {
+      "timestamp": "2025-07-24T08:16:22.539Z",
+      "istTime": "2025-07-24 13:46:22 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.127598,
+      "ratio": 1.6034303408568595,
+      "bidVolume": 124011,
+      "askVolume": 198843,
+      "momentum": -0.15884069764713007
+    },
+    {
+      "timestamp": "2025-07-24T08:16:23.454Z",
+      "istTime": "2025-07-24 13:46:23 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.12755899999999998,
+      "ratio": 1.4287273986099647,
+      "bidVolume": 150212,
+      "askVolume": 214612,
+      "momentum": -0.18935689079116752
+    },
+    {
+      "timestamp": "2025-07-24T08:16:24.417Z",
+      "istTime": "2025-07-24 13:46:24 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.12754749999999998,
+      "ratio": 2.0646158168282063,
+      "bidVolume": 128142,
+      "askVolume": 264564,
+      "momentum": -0.19835525543619972
+    },
+    {
+      "timestamp": "2025-07-24T08:16:25.412Z",
+      "istTime": "2025-07-24 13:46:25 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.12747550000000002,
+      "ratio": 1.511857235472754,
+      "bidVolume": 175842,
+      "askVolume": 265848,
+      "momentum": -0.25469284277899124
+    },
+    {
+      "timestamp": "2025-07-24T08:16:26.414Z",
+      "istTime": "2025-07-24 13:46:26 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.1275375,
+      "ratio": 1.8777510819510543,
+      "bidVolume": 129858,
+      "askVolume": 243841,
+      "momentum": -0.20617992034491112
+    },
+    {
+      "timestamp": "2025-07-24T08:16:27.412Z",
+      "istTime": "2025-07-24 13:46:27 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.1275365,
+      "ratio": 1.5709565848925189,
+      "bidVolume": 167983,
+      "askVolume": 263894,
+      "momentum": -0.20696238683578444
+    },
+    {
+      "timestamp": "2025-07-24T08:16:28.412Z",
+      "istTime": "2025-07-24 13:46:28 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.1275365,
+      "ratio": 1.928989411109047,
+      "bidVolume": 129192,
+      "askVolume": 249210,
+      "momentum": -0.20696238683578444
+    },
+    {
+      "timestamp": "2025-07-24T08:16:29.414Z",
+      "istTime": "2025-07-24 13:46:29 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.1275385,
+      "ratio": 5.146188105842285,
+      "bidVolume": 106876,
+      "askVolume": 550004,
+      "momentum": -0.20539745385403782
+    },
+    {
+      "timestamp": "2025-07-24T08:16:30.414Z",
+      "istTime": "2025-07-24 13:46:30 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.12746400000000002,
+      "ratio": 1.8790438009624166,
+      "bidVolume": 154403,
+      "askVolume": 290130,
+      "momentum": -0.26369120742402347
+    },
+    {
+      "timestamp": "2025-07-24T08:16:31.500Z",
+      "istTime": "2025-07-24 13:46:31 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.1273655,
+      "ratio": 0.8356232197230135,
+      "bidVolume": 254525,
+      "askVolume": 212687,
+      "momentum": -0.3407641567749903
+    },
+    {
+      "timestamp": "2025-07-24T08:16:32.416Z",
+      "istTime": "2025-07-24 13:46:32 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.1273105,
+      "ratio": 2.6468227935692012,
+      "bidVolume": 222554,
+      "askVolume": 589061,
+      "momentum": -0.38379981377297895
+    },
+    {
+      "timestamp": "2025-07-24T08:16:33.416Z",
+      "istTime": "2025-07-24 13:46:33 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.12719550000000002,
+      "ratio": 2.4795746490854955,
+      "bidVolume": 235100,
+      "askVolume": 582948,
+      "momentum": -0.47378346022330114
+    },
+    {
+      "timestamp": "2025-07-24T08:16:34.415Z",
+      "istTime": "2025-07-24 13:46:34 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.12713750000000001,
+      "ratio": 1.298659606800677,
+      "bidVolume": 461954,
+      "askVolume": 599921,
+      "momentum": -0.5191665166939097
+    },
+    {
+      "timestamp": "2025-07-24T08:16:35.415Z",
+      "istTime": "2025-07-24 13:46:35 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.1270925,
+      "ratio": 0.7530935935491812,
+      "bidVolume": 349351,
+      "askVolume": 263094,
+      "momentum": -0.554377508783187
+    },
+    {
+      "timestamp": "2025-07-24T08:16:36.413Z",
+      "istTime": "2025-07-24 13:46:36 IST",
+      "type": "NO_SIGNAL",
+      "symbol": "SPKUSDT",
+      "price": 0.127078,
+      "ratio": 1.9030484461833679,
+      "bidVolume": 321016,
+      "askVolume": 610909,
+      "momentum": -0.5657232729008391
+    }
+  ],
+  "trifectaSignals": [],
+  "squeezeSignals": [],
+  "trades": [],
+  "performance": {
+    "hourly": [],
+    "daily": [],
+    "summary": {}
+  },
+  "systemEvents": [
+    {
+      "timestamp": "2025-07-24T08:16:11.680Z",
+      "istTime": "2025-07-24 13:46:11 IST",
+      "event": "SYSTEM_STARTED",
+      "details": {
+        "version": "4.0",
+        "symbol": "SPKUSDT"
+      },
+      "symbol": "SPKUSDT"
+    },
+    {
+      "timestamp": "2025-07-24T08:16:37.116Z",
+      "istTime": "2025-07-24 13:46:37 IST",
+      "event": "SYSTEM_SHUTDOWN",
+      "details": {
+        "uptime": 25
+      },
+      "symbol": "SPKUSDT"
+    }
+  ],
+  "errors": [],
+  "endTime": "2025-07-24T08:16:37.116Z",
+  "sessionDuration": 26699,
+  "summary": {
+    "totalClassifications": 25,
+    "totalTrifectaSignals": 0,
+    "totalSqueezeSignals": 0,
+    "totalTrades": 0,
+    "totalErrors": 0,
+    "uptime": 26,
+    "performance": {
+      "message": "No trades executed"
+    }
+  }
+}
