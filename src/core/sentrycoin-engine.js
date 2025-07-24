@@ -14,6 +14,8 @@ import CascadeHunterTrader from '../strategies/cascade-hunter-trader.js';
 import CoilWatcher from '../strategies/coil-watcher.js';
 import ShakeoutDetector from '../strategies/shakeout-detector.js';
 import DetailedReporter from '../reporting/detailed-reporter.js';
+import ManipulationDetector from '../services/manipulation-detector.js';
+import OnChainMonitor from '../services/onchain-monitor.js';
 import cloudStorage from '../services/cloud-storage.js';
 import { getISTTime, formatPrice, formatPriceWithSymbol } from '../utils/index.js';
 
@@ -75,6 +77,17 @@ class SentryCoinEngine {
       this.shakeoutDetector = new ShakeoutDetector(this.symbol);
       console.log('✅ v4.1 Strategy modules initialized');
 
+      // v4.4 FORENSIC INTELLIGENCE: Initialize manipulation detection
+      if (process.env.ENABLE_MANIPULATION_DETECTION === 'true') {
+        this.manipulationDetector = new ManipulationDetector({ symbol: this.symbol });
+        this.onChainMonitor = new OnChainMonitor({ symbol: this.symbol });
+        console.log('✅ v4.4 Manipulation detection initialized');
+
+        // Start on-chain monitoring
+        await this.onChainMonitor.start();
+        console.log('✅ On-chain whale monitoring started');
+      }
+
       // Initialize detailed reporter
       this.reporter = new DetailedReporter(this.symbol);
       console.log('✅ Detailed reporter initialized');
@@ -103,7 +116,7 @@ class SentryCoinEngine {
   setupEventListeners() {
     // Connect classifier to v4.1 strategy modules and reporter
 
-    // CASCADE_HUNTER: Active SHORT trading for Distribution Phase - WITH VETO LOGIC
+    // CASCADE_HUNTER: Active SHORT trading with FORENSIC INTELLIGENCE
     this.classifier.on('CASCADE_HUNTER_SIGNAL', (signal) => {
       this.stats.cascadeHunterSignals++;
       this.stats.totalClassifications = this.classifier.stats.totalClassifications;
@@ -114,6 +127,33 @@ class SentryCoinEngine {
         this.cascadeHunterTrader.enterDefensivePosture('Recent SHAKEOUT signal detected');
         this.reporter.recordCascadeSignal({...signal, status: 'VETOED'});
         return;
+      }
+
+      // v4.4 FORENSIC INTELLIGENCE: Validate against manipulation patterns
+      if (this.manipulationDetector) {
+        const manipulationAssessment = this.manipulationDetector.getManipulationAssessment();
+
+        // Block trades during active spoofing
+        if (manipulationAssessment.spoofingDetected) {
+          console.log(`🚫 CASCADE signal BLOCKED - Active spoofing detected (${manipulationAssessment.spoofCount} spoofs)`);
+          this.cascadeHunterTrader.enterDefensivePosture('Market manipulation detected');
+          this.reporter.recordCascadeSignal({...signal, status: 'BLOCKED_SPOOFING'});
+          return;
+        }
+
+        // Enhance signal confidence with whale inflow data
+        if (manipulationAssessment.whaleInflowActive) {
+          signal.confidence = 'VERY_HIGH';
+          signal.whaleInflowConfirmed = true;
+          console.log(`🐋 CASCADE signal ENHANCED - Whale inflow confirmed (institutional selling expected)`);
+        } else if (process.env.REQUIRE_WHALE_CONFIRMATION === 'true') {
+          console.log(`🚫 CASCADE signal REJECTED - No whale inflow confirmation`);
+          this.reporter.recordCascadeSignal({...signal, status: 'REJECTED_NO_WHALE'});
+          return;
+        }
+
+        // Add manipulation risk to signal
+        signal.manipulationRisk = manipulationAssessment.riskLevel;
       }
 
       this.cascadeHunterTrader.handleCascadeSignal(signal);
@@ -160,7 +200,26 @@ class SentryCoinEngine {
       this.reporter.recordCascadeSignal(signal);
     });
 
-    console.log('🔗 v4.1 Event listeners configured');
+    // v4.4 FORENSIC INTELLIGENCE: Manipulation detection event listeners
+    if (this.manipulationDetector) {
+      this.manipulationDetector.on('SPOOFING_DETECTED', (data) => {
+        console.log(`🚨 SPOOFING MANIPULATION DETECTED! Entering defensive mode for ${data.defensiveModeUntil - Date.now()}ms`);
+        this.cascadeHunterTrader.enterDefensivePosture('Spoofing manipulation detected');
+      });
+    }
+
+    if (this.onChainMonitor) {
+      this.onChainMonitor.on('WHALE_INFLOW', (data) => {
+        console.log(`🐋 WHALE INFLOW: ${data.amount} SPK - CASCADE signals now HIGH PRIORITY`);
+        // The manipulation detector will automatically enhance CASCADE signals
+      });
+
+      this.onChainMonitor.on('WHALE_OUTFLOW', (data) => {
+        console.log(`🐋 WHALE OUTFLOW: ${data.amount} SPK - Potentially bullish signal`);
+      });
+    }
+
+    console.log('🔗 v4.4 Event listeners configured (including forensic intelligence)');
   }
 
   /**
@@ -208,6 +267,16 @@ class SentryCoinEngine {
       this.predictor.stats.messagesProcessed++;
       this.stats.totalClassifications++;
       
+      // v4.4 FORENSIC INTELLIGENCE: Analyze for manipulation patterns
+      if (this.manipulationDetector) {
+        const orderBookData = {
+          bids: this.predictor.orderBook.bids,
+          asks: this.predictor.orderBook.asks,
+          timestamp: Date.now()
+        };
+        this.manipulationDetector.analyzeOrderBookForSpoofing(orderBookData);
+      }
+
       // Use v4.0 classifier
       const marketData = {
         askToBidRatio,
