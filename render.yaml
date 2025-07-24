@@ -1,0 +1,64 @@
+services:
+  - type: web
+    name: sentrycoin-v4-production
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SYMBOL
+        value: SPKUSDT
+      - key: PAPER_TRADING
+        value: true
+      - key: TRIFECTA_TRADING_ENABLED
+        value: true
+      - key: SQUEEZE_TRADING_ENABLED
+        value: true
+      - key: PRESSURE_THRESHOLD
+        value: 3.0
+      - key: LIQUIDITY_THRESHOLD
+        value: 100000
+      - key: STRONG_MOMENTUM_THRESHOLD
+        value: -0.3
+      - key: WEAK_MOMENTUM_THRESHOLD
+        value: -0.1
+      - key: TRIFECTA_MAX_POSITION
+        value: 1000
+      - key: TRIFECTA_STOP_LOSS
+        value: 2.0
+      - key: TRIFECTA_TAKE_PROFIT
+        value: 5.0
+      - key: SQUEEZE_MAX_POSITION
+        value: 500
+      - key: SQUEEZE_STOP_LOSS
+        value: 1.5
+      - key: SQUEEZE_TAKE_PROFIT
+        value: 3.0
+      - key: SQUEEZE_TIME_EXIT
+        value: 300
+      - key: DANGER_RATIO
+        value: 2.5
+      - key: ORDER_BOOK_DEPTH
+        value: 50
+      - key: COOLDOWN_MINUTES
+        value: 5
+      - key: LOG_LEVEL
+        value: info
+      - key: EXCHANGE
+        value: binance
+      - key: CLOUD_STORAGE_ENABLED
+        value: false
+      # IMPORTANT: Add these sensitive values in Render Dashboard
+      # - key: TELEGRAM_BOT_TOKEN
+      #   value: YOUR_BOT_TOKEN_HERE
+      # - key: TELEGRAM_CHAT_ID
+      #   value: YOUR_CHAT_ID_HERE
+      # - key: TELEGRAM_API_ID
+      #   value: YOUR_API_ID_HERE
+      # - key: TELEGRAM_API_HASH
+      #   value: YOUR_API_HASH_HERE
+      # - key: ALPHA_VANTAGE_API_KEY
+      #   value: YOUR_API_KEY_HERE
