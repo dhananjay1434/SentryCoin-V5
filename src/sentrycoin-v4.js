@@ -122,7 +122,6 @@ class SentryCoinV4 {
       // Execute shadow trade for P&L tracking
       this.executeShadowTrade(signal, 'SHORT');
     });
-    });
 
     this.classifier.on('ABSORPTION_SQUEEZE_SIGNAL', (signal) => {
       this.stats.squeezeSignals++;
