@@ -5,7 +5,7 @@
   "main": "src/index-v4.js",
   "type": "module",
   "scripts": {
-    "start": "node src/azure-diagnostic.js",
+    "start": "node src/index-v4.js",
     "start:v3": "node src/index.js",
     "start:v4": "node src/index-v4.js",
     "start:multi": "node src/multi-symbol-predictor.js",
