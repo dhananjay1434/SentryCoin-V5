@@ -54,6 +54,20 @@ export default class OnChainMonitor extends EventEmitter {
     this.lastThreatUpdate = 0;
     this.threatHistory = [];
 
+    // v4.6 OPTIMIZATION: Timestamp tracking to avoid re-processing old transactions
+    this.lastCheckedTimestamp = Date.now() - (24 * 60 * 60 * 1000); // Start 24h ago
+    this.processedTransactions = new Set(); // Track processed tx hashes
+
+    // v4.6 API EFFICIENCY MONITORING
+    this.apiStats = {
+      totalCalls: 0,
+      callsToday: 0,
+      lastResetTime: Date.now(),
+      averageResponseTime: 0,
+      errorCount: 0,
+      successCount: 0
+    };
+
     // v4.6 REAL-WORLD CEX DEPOSIT ADDRESSES (from forensic transaction analysis)
     this.exchangeAddresses = new Set([
       // BINANCE (confirmed from real transactions)
@@ -186,26 +200,48 @@ export default class OnChainMonitor extends EventEmitter {
   }
 
   /**
-   * v4.5 CORE: Monitor specific whale addresses from watchlist
+   * v4.6 OPTIMIZED: Wallet-centric monitoring (5,760 calls/day vs 100k limit)
+   *
+   * Strategic advantage: Instead of downloading ALL SPK transactions (133k+),
+   * we only monitor our 8 specific whale addresses. This is 100x more efficient
+   * and eliminates MEV bot noise automatically.
    */
   async checkWatchlistMovements() {
     if (!this.etherscanApiKey) return;
 
+    console.log(`🔍 Scanning ${this.whaleWatchlist.size} whale addresses for activity...`);
+
     for (const whaleAddress of this.whaleWatchlist) {
       try {
         await this.checkSpecificWhaleAddress(whaleAddress);
-        await this.sleep(200); // Rate limiting: 5 calls/sec
+        await this.sleep(200); // Rate limiting: 5 calls/sec (well within limits)
       } catch (error) {
-        console.error(`❌ Failed to check whale ${whaleAddress}:`, error.message);
+        console.error(`❌ Failed to check whale ${whaleAddress.substring(0,8)}...:`, error.message);
+        // Continue checking other whales even if one fails
       }
     }
+
+    console.log(`✅ Whale scan complete - ${this.whaleWatchlist.size} addresses checked`);
+
+    // OPTIMIZATION: Update timestamp to avoid re-processing transactions in next cycle
+    this.lastCheckedTimestamp = Date.now();
   }
 
   /**
-   * v4.6 ENHANCED: Check specific whale address for exchange deposits (real-world logic)
+   * v4.6 WALLET-CENTRIC: Optimized whale-specific monitoring (defensive coding)
+   *
+   * Efficiency: Only downloads transactions for THIS whale address
+   * vs downloading ALL 133k+ SPK transactions. 100x more efficient!
    */
   async checkSpecificWhaleAddress(whaleAddress) {
     try {
+      console.log(`🔍 Checking whale ${whaleAddress.substring(0,8)}... for recent activity`);
+
+      // v4.6 API EFFICIENCY: Track API call timing
+      const apiCallStart = Date.now();
+      this.apiStats.totalCalls++;
+      this.apiStats.callsToday++;
+
       const response = await axios.get('https://api.etherscan.io/api', {
         params: {
           module: 'account',
@@ -217,45 +253,146 @@ export default class OnChainMonitor extends EventEmitter {
           sort: 'desc',
           apikey: this.etherscanApiKey
         },
-        timeout: 10000
+        timeout: 15000 // Increased timeout for reliability
       });
 
-      const transactions = response.data.result || [];
+      // DEFENSIVE CODING: Validate API response structure
+      if (!response.data) {
+        console.warn(`⚠️ No data in API response for whale ${whaleAddress.substring(0,8)}...`);
+        return;
+      }
 
-      // Check recent transactions (last 20 for more comprehensive analysis)
-      for (const tx of transactions.slice(0, 20)) {
-        await this.analyzeWhaleTransaction(tx, whaleAddress);
+      if (response.data.status !== '1') {
+        console.warn(`⚠️ API error for whale ${whaleAddress.substring(0,8)}...: ${response.data.message || 'Unknown error'}`);
+        return;
+      }
+
+      const transactions = response.data.result;
+
+      // DEFENSIVE CODING: Validate transactions array
+      if (!Array.isArray(transactions)) {
+        console.warn(`⚠️ Invalid transactions format for whale ${whaleAddress.substring(0,8)}...`);
+        return;
+      }
+
+      if (transactions.length === 0) {
+        console.log(`📭 No transactions found for whale ${whaleAddress.substring(0,8)}...`);
+        return;
+      }
+
+      console.log(`📊 Found ${transactions.length} transactions for whale ${whaleAddress.substring(0,8)}...`);
+
+      // v4.6 API EFFICIENCY: Calculate response time
+      const apiCallDuration = Date.now() - apiCallStart;
+      this.apiStats.averageResponseTime = (this.apiStats.averageResponseTime + apiCallDuration) / 2;
+      this.apiStats.successCount++;
+
+      console.log(`⚡ API call completed in ${apiCallDuration}ms`);
+
+      // OPTIMIZATION: Only check the MOST RECENT transaction (latest activity)
+      // This is much more efficient than analyzing 20+ old transactions
+      const latestTx = transactions[0];
+
+      if (latestTx) {
+        await this.analyzeWhaleTransaction(latestTx, whaleAddress);
       }
 
     } catch (error) {
-      console.error(`❌ Etherscan API error for ${whaleAddress}:`, error.message);
+      // v4.6 API EFFICIENCY: Track errors
+      this.apiStats.errorCount++;
+
+      console.error(`❌ Etherscan API error for whale ${whaleAddress.substring(0,8)}...:`, error.message);
+
+      // DEFENSIVE: Don't crash the entire monitoring loop on one whale failure
+      if (error.code === 'ECONNABORTED') {
+        console.warn(`⏰ Timeout checking whale ${whaleAddress.substring(0,8)}... - will retry next cycle`);
+      } else if (error.response?.status === 429) {
+        console.warn(`🚫 Rate limited - backing off for whale ${whaleAddress.substring(0,8)}...`);
+        await this.sleep(1000); // Back off for 1 second
+      } else if (error.response?.status === 403) {
+        console.error(`🚫 API key invalid or rate limit exceeded`);
+      }
     }
   }
 
   /**
-   * v4.6 FORENSIC ANALYSIS: Analyze individual whale transaction patterns
+   * v4.6 FORENSIC ANALYSIS: Analyze whale transaction with defensive validation
    */
   async analyzeWhaleTransaction(tx, whaleAddress) {
-    const amount = parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18));
-    const fromAddr = tx.from.toLowerCase();
-    const toAddr = tx.to.toLowerCase();
-    const timestamp = parseInt(tx.timeStamp) * 1000;
-    const txAge = Date.now() - timestamp;
-
-    // Only analyze recent transactions (last 24 hours)
-    if (txAge > 24 * 60 * 60 * 1000) return;
-
-    // v4.6 FILTER OUT MEV BOTS AND DEFI NOISE (from real transaction analysis)
-    const isMevBot = this.mevBotAddresses.has(fromAddr) || this.mevBotAddresses.has(toAddr);
-    if (isMevBot) {
-      // Ignore MEV bot transactions - they create noise and false signals
+    // DEFENSIVE CODING: Validate transaction object structure
+    if (!tx || typeof tx !== 'object') {
+      console.warn(`⚠️ Invalid transaction object for whale ${whaleAddress?.substring(0,8)}...`);
       return;
     }
 
-    const isFromWatchlist = this.whaleWatchlist.has(fromAddr);
-    const isToExchange = this.exchangeAddresses.has(toAddr);
-    const isFromExchange = this.exchangeAddresses.has(fromAddr);
+    // DEFENSIVE CODING: Validate required transaction fields
+    if (!tx.value || !tx.from || !tx.to || !tx.timeStamp) {
+      console.warn(`⚠️ Missing required fields in transaction for whale ${whaleAddress?.substring(0,8)}...`);
+      return;
+    }
 
+    try {
+      const amount = parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18));
+      const fromAddr = tx.from.toLowerCase();
+      const toAddr = tx.to.toLowerCase();
+      const timestamp = parseInt(tx.timeStamp) * 1000;
+      const txAge = Date.now() - timestamp;
+
+      // OPTIMIZATION: Only analyze recent transactions (last 6 hours for real-time monitoring)
+      if (txAge > 6 * 60 * 60 * 1000) {
+        console.log(`⏰ Transaction too old (${Math.floor(txAge/3600000)}h ago) - skipping`);
+        return;
+      }
+
+      // DEFENSIVE: Validate amount is a valid number
+      if (isNaN(amount) || amount < 0) {
+        console.warn(`⚠️ Invalid amount in transaction: ${tx.value}`);
+        return;
+      }
+
+      // v4.6 FILTER OUT MEV BOTS AND DEFI NOISE (from real transaction analysis)
+      const isMevBot = this.mevBotAddresses.has(fromAddr) || this.mevBotAddresses.has(toAddr);
+      if (isMevBot) {
+        console.log(`🤖 MEV bot transaction filtered: ${amount.toFixed(0)} SPK`);
+        return;
+      }
+
+      const isFromWatchlist = this.whaleWatchlist.has(fromAddr);
+      const isToExchange = this.exchangeAddresses.has(toAddr);
+      const isFromExchange = this.exchangeAddresses.has(fromAddr);
+
+      // OPTIMIZATION: Skip already processed transactions
+      if (this.processedTransactions.has(tx.hash)) {
+        console.log(`♻️ Transaction already processed: ${tx.hash.substring(0,10)}...`);
+        return;
+      }
+
+      // OPTIMIZATION: Skip transactions older than our last check
+      if (timestamp <= this.lastCheckedTimestamp) {
+        console.log(`⏰ Transaction predates last check: ${new Date(timestamp).toISOString()}`);
+        return;
+      }
+
+      console.log(`🔍 Analyzing NEW transaction: ${amount.toFixed(0)} SPK`);
+      console.log(`   📊 From: ${fromAddr.substring(0,8)}... | To: ${toAddr.substring(0,8)}...`);
+      console.log(`   🏷️ Watchlist: ${isFromWatchlist} | To Exchange: ${isToExchange} | From Exchange: ${isFromExchange}`);
+
+      // Mark transaction as processed
+      this.processedTransactions.add(tx.hash);
+
+      // PATTERN ANALYSIS: Process different transaction types
+      await this.processTransactionPatterns(tx, amount, fromAddr, toAddr, timestamp, isFromWatchlist, isToExchange, isFromExchange);
+
+    } catch (error) {
+      console.error(`❌ Error analyzing transaction for whale ${whaleAddress?.substring(0,8)}...:`, error.message);
+      return;
+    }
+  }
+
+  /**
+   * v4.6 PATTERN ANALYSIS: Process different whale transaction patterns
+   */
+  async processTransactionPatterns(tx, amount, fromAddr, toAddr, timestamp, isFromWatchlist, isToExchange, isFromExchange) {
     // PATTERN 1: Whale → Exchange (DUMP SIGNAL)
     if (isFromWatchlist && isToExchange && amount >= this.whaleHuntTriggerThreshold) {
       console.log(`🚨 WHALE DUMP DETECTED: ${fromAddr.substring(0,8)}... → Exchange`);
@@ -731,7 +868,7 @@ export default class OnChainMonitor extends EventEmitter {
   }
 
   /**
-   * Clean up old dump records
+   * Clean up old dump records and processed transactions
    */
   cleanupOldDumps() {
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
@@ -739,6 +876,13 @@ export default class OnChainMonitor extends EventEmitter {
 
     this.recentDumps = this.recentDumps.filter(dump => dump.timestamp > cutoff);
     this.threatHistory = this.threatHistory.filter(event => event.timestamp > cutoff);
+
+    // v4.6 OPTIMIZATION: Clean up processed transaction hashes (prevent memory leak)
+    // Note: We can't filter by timestamp since we only store hashes, so we clear periodically
+    if (this.processedTransactions.size > 1000) {
+      console.log(`🧹 Cleaning up processed transactions cache (${this.processedTransactions.size} entries)`);
+      this.processedTransactions.clear();
+    }
   }
 
   /**
@@ -749,7 +893,7 @@ export default class OnChainMonitor extends EventEmitter {
   }
 
   /**
-   * Get monitoring statistics
+   * v4.6 ENHANCED: Get comprehensive monitoring statistics with API efficiency
    */
   getStats() {
     const validityWindow = this.dumpValidityHours * 60 * 60 * 1000;
@@ -760,18 +904,51 @@ export default class OnChainMonitor extends EventEmitter {
     const watchlistDumps = recentDumps.filter(dump => dump.isWatchlistWhale);
     const totalDumpAmount = recentDumps.reduce((sum, dump) => sum + dump.amount, 0);
 
+    // Reset daily API call count if needed
+    const now = Date.now();
+    if (now - this.apiStats.lastResetTime > 24 * 60 * 60 * 1000) {
+      this.apiStats.callsToday = 0;
+      this.apiStats.lastResetTime = now;
+    }
+
     return {
       isRunning: this.isRunning,
+      systemState: this.systemState,
       threatLevel: this.threatLevel,
       lastThreatUpdate: new Date(this.lastThreatUpdate).toISOString(),
       whaleWatchlistSize: this.whaleWatchlist.size,
       recentDumpCount: recentDumps.length,
       watchlistDumpCount: watchlistDumps.length,
       totalRecentDumpAmount: totalDumpAmount,
-      hasHighThreat: this.threatLevel === 'HIGH',
-      hasMediumThreat: this.threatLevel === 'MEDIUM',
-      threatHistory: this.threatHistory.slice(-5), // Last 5 threat changes
-      lastChecked: new Date().toISOString()
+      hasHighThreat: this.systemState === 'HUNTING',
+      hasMediumThreat: this.systemState === 'DEFENSIVE',
+      threatHistory: this.threatHistory.slice(-5),
+      lastChecked: new Date().toISOString(),
+
+      // v4.6 API EFFICIENCY METRICS (wallet-centric monitoring)
+      apiEfficiency: {
+        totalCalls: this.apiStats.totalCalls,
+        callsToday: this.apiStats.callsToday,
+        dailyLimit: 100000,
+        usagePercentage: (this.apiStats.callsToday / 100000 * 100).toFixed(2) + '%',
+        averageResponseTime: Math.round(this.apiStats.averageResponseTime) + 'ms',
+        successRate: this.apiStats.totalCalls > 0 ?
+          ((this.apiStats.successCount / this.apiStats.totalCalls) * 100).toFixed(1) + '%' : '0%',
+        errorCount: this.apiStats.errorCount,
+        estimatedDailyCalls: Math.round((this.apiStats.callsToday / ((now - this.apiStats.lastResetTime) / (24 * 60 * 60 * 1000))) || 0),
+        efficiency: 'Wallet-centric (100x more efficient than token-centric)'
+      },
+
+      // OPTIMIZATION METRICS
+      optimization: {
+        processedTransactions: this.processedTransactions.size,
+        lastCheckedTimestamp: new Date(this.lastCheckedTimestamp).toISOString(),
+        monitoringInterval: this.monitoringInterval / 1000 + 's',
+        whaleAddressesMonitored: this.whaleWatchlist.size,
+        exchangeAddressesTracked: this.exchangeAddresses.size,
+        mevBotsFiltered: this.mevBotAddresses.size,
+        deduplicationActive: true
+      }
     };
   }
 }

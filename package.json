@@ -13,6 +13,7 @@
     "test:whale": "node tests/whale-watchlist-test.js",
     "test:predatory": "node tests/predatory-system-test.js",
     "test:realworld": "node tests/real-world-transaction-test.js",
+    "test:optimization": "node tests/wallet-centric-optimization-test.js",
     "test:integration": "node tests/integration/connectivity.test.js",
     "backtest": "node scripts/run-backtest.js",
     "backtest:fetch": "node scripts/run-backtest.js fetch",
