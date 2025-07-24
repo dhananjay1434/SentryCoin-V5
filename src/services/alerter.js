@@ -46,11 +46,20 @@ class FlashCrashAlerter {
    * @returns {string} Plain text message
    */
   stripMarkdown(message) {
+    if (!message || typeof message !== 'string') return '';
+
     return message
-      .replace(/\*/g, '')  // Remove asterisks
-      .replace(/_/g, '')   // Remove underscores
-      .replace(/`/g, '')   // Remove backticks
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // Convert links to plain text
+      .replace(/\*\*/g, '')  // Remove double asterisks (bold)
+      .replace(/\*/g, '')    // Remove single asterisks (italic)
+      .replace(/__/g, '')    // Remove double underscores (bold)
+      .replace(/_/g, '')     // Remove single underscores (italic)
+      .replace(/`/g, '')     // Remove backticks (code)
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Convert links to plain text
+      .replace(/#{1,6}\s/g, '') // Remove headers
+      .replace(/>/g, '')     // Remove blockquotes
+      .replace(/\|/g, '')    // Remove table separators
+      .replace(/~/g, '')     // Remove strikethrough
+      .trim();               // Remove leading/trailing whitespace
   }
 
   /**
@@ -253,17 +262,23 @@ High liquidity being overwhelmed by massive sell pressure. Active dumping detect
 
     // Legacy v4.0 Trifecta formatting for backward compatibility
     if (signalType === 'TRIFECTA_CONVICTION_SIGNAL_LEGACY') {
+      // Safe formatting to avoid Markdown parsing errors
+      const safeVolume = this.safeFormatVolume(totalBidVolume);
+      const safeMomentum = momentum ? momentum.toFixed(3) : '0.000';
+      const safeRatio = askToBidRatio ? askToBidRatio.toFixed(2) : '0.00';
+      const safePrice = currentPrice ? currentPrice.toFixed(6) : '0.000000';
+
       return `🚨 *SENTRYCOIN v4.0 TRIFECTA CONVICTION* 🚨
 
 📊 *Asset:* ${symbol} (BINANCE)
-💰 *Current Price:* $${currentPrice.toFixed(6)}
+💰 *Current Price:* $${safePrice}
 ⚠️ *Strategy:* SHORT (${confidence} Confidence)
 🎯 *Phenomenon:* LIQUIDITY CASCADE
 
 🔥 *TRIFECTA CONDITIONS MET:*
-• **Pressure:** ${askToBidRatio.toFixed(2)}x ✅ (≥3.0x)
-• **Liquidity:** ${formatVolume(totalBidVolume)} ✅ (≥100k HIGH)
-• **Momentum:** ${momentum.toFixed(3)}% ✅ (≤-0.3% STRONG)
+• *Pressure:* ${safeRatio}x ✅ (≥3.0x)
+• *Liquidity:* ${safeVolume} ✅ (≥100k HIGH)
+• *Momentum:* ${safeMomentum}% ✅ (≤-0.3% STRONG)
 
 📈 *Market Analysis:*
 High liquidity being overwhelmed by massive sell pressure. Classic flash crash setup with strong downward momentum.
@@ -277,17 +292,23 @@ High liquidity being overwhelmed by massive sell pressure. Classic flash crash s
     }
 
     if (signalType === 'ABSORPTION_SQUEEZE_SIGNAL') {
+      // Safe formatting to avoid Markdown parsing errors
+      const safeVolume = this.safeFormatVolume(totalBidVolume);
+      const safeMomentum = momentum ? momentum.toFixed(3) : '0.000';
+      const safeRatio = askToBidRatio ? askToBidRatio.toFixed(2) : '0.00';
+      const safePrice = currentPrice ? currentPrice.toFixed(6) : '0.000000';
+
       return `🔄 *SENTRYCOIN v4.0 ABSORPTION SQUEEZE* 🔄
 
 📊 *Asset:* ${symbol} (BINANCE)
-💰 *Current Price:* $${currentPrice.toFixed(6)}
+💰 *Current Price:* $${safePrice}
 ⚠️ *Strategy:* LONG (${confidence} Confidence)
 🎯 *Phenomenon:* FORCED ABSORPTION
 
 🔄 *SQUEEZE CONDITIONS MET:*
-• **Pressure:** ${askToBidRatio.toFixed(2)}x ✅ (≥3.0x)
-• **Liquidity:** ${formatVolume(totalBidVolume)} ✅ (<50k LOW)
-• **Momentum:** ${momentum.toFixed(3)}% ✅ (-0.2% to +0.2% WEAK)
+• *Pressure:* ${safeRatio}x ✅ (≥3.0x)
+• *Liquidity:* ${safeVolume} ✅ (<50k LOW)
+• *Momentum:* ${safeMomentum}% ✅ (-0.2% to +0.2% WEAK)
 
 📈 *Market Analysis:*
 Thin liquidity absorbing sell pressure with weak momentum. Sellers being absorbed by resilient buyers.
@@ -301,17 +322,23 @@ Thin liquidity absorbing sell pressure with weak momentum. Sellers being absorbe
     }
 
     if (signalType === 'PRESSURE_SPIKE_SIGNAL') {
+      // Safe formatting to avoid Markdown parsing errors
+      const safeVolume = this.safeFormatVolume(totalBidVolume);
+      const safeMomentum = momentum ? momentum.toFixed(3) : '0.000';
+      const safeRatio = askToBidRatio ? askToBidRatio.toFixed(2) : '0.00';
+      const safePrice = currentPrice ? currentPrice.toFixed(6) : '0.000000';
+
       return `🔥 *SENTRYCOIN v4.0 PRESSURE SPIKE* 🔥
 
 📊 *Asset:* ${symbol} (BINANCE)
-💰 *Current Price:* $${currentPrice.toFixed(6)}
+💰 *Current Price:* $${safePrice}
 ⚠️ *Strategy:* NEUTRAL (${confidence} Confidence)
 🎯 *Phenomenon:* VOLATILITY BREAKOUT PENDING
 
 🔥 *PRESSURE SPIKE CONDITIONS MET:*
-• **Pressure:** ${askToBidRatio.toFixed(2)}x ✅ (≥3.0x)
-• **Liquidity:** ${formatVolume(totalBidVolume)} ✅ (50k-100k MID)
-• **Momentum:** ${momentum.toFixed(3)}% ✅ (-0.2% to +0.2% WEAK)
+• *Pressure:* ${safeRatio}x ✅ (≥3.0x)
+• *Liquidity:* ${safeVolume} ✅ (50k-100k MID)
+• *Momentum:* ${safeMomentum}% ✅ (-0.2% to +0.2% WEAK)
 
 📈 *Market Analysis:*
 High pressure building in mid-liquidity zone. Market is coiled and ready to break in either direction.
@@ -326,6 +353,13 @@ High pressure building in mid-liquidity zone. Market is coiled and ready to brea
 
     // Legacy Trifecta Algorithm (v3.0) formatting - fallback
     if (signalType === 'TRIFECTA' && version === 'v3.0') {
+      // Safe formatting to avoid Markdown parsing errors
+      const safeVolume = this.safeFormatVolume(totalBidVolume);
+      const safeAskVolume = this.safeFormatVolume(totalAskVolume);
+      const safeMomentum = momentum ? momentum.toFixed(2) : '0.00';
+      const safeRatio = askToBidRatio ? askToBidRatio.toFixed(2) : '0.00';
+      const safePrice = currentPrice ? currentPrice.toFixed(6) : '0.000000';
+
       const pressureCondition = askToBidRatio > 3.0;
       const liquidityCondition = totalBidVolume < 100000;
       const momentumCondition = momentum <= -0.1;
@@ -333,17 +367,17 @@ High pressure building in mid-liquidity zone. Market is coiled and ready to brea
       return `🚨 *SENTRYCOIN v3.0 TRIFECTA ALERT* 🚨
 
 📊 *Asset:* ${symbol}
-💰 *Current Price:* $${currentPrice.toFixed(6)}
+💰 *Current Price:* $${safePrice}
 ⚠️ *Risk Level:* ${riskLevel}
 🎯 *Signal Type:* ${signalType} (${confidence} Confidence)
 
 🔥 *TRIFECTA CONDITIONS MET:*
-• **Pressure:** ${askToBidRatio.toFixed(2)}x ${pressureCondition ? '✅' : '❌'} (>3.0x)
-• **Liquidity:** ${formatVolume(totalBidVolume)} ${liquidityCondition ? '✅' : '❌'} (<100k)
-• **Momentum:** ${momentum.toFixed(2)}% ${momentumCondition ? '✅' : '❌'} (≤-0.1%)
+• *Pressure:* ${safeRatio}x ${pressureCondition ? '✅' : '❌'} (>3.0x)
+• *Liquidity:* ${safeVolume} ${liquidityCondition ? '✅' : '❌'} (<100k)
+• *Momentum:* ${safeMomentum}% ${momentumCondition ? '✅' : '❌'} (≤-0.1%)
 
 📈 *Market Analysis:*
-• Total Ask Volume: ${formatVolume(totalAskVolume)}
+• Total Ask Volume: ${safeAskVolume}
 • Sell Pressure: EXTREME
 • Buy Support: FRAGILE
 • Market Trend: BEARISH
@@ -357,19 +391,25 @@ High pressure building in mid-liquidity zone. Market is coiled and ready to brea
     }
 
     // Golden Signal Algorithm (v2.0) formatting - fallback
+    // Safe formatting to avoid Markdown parsing errors
+    const safeVolume = this.safeFormatVolume(totalBidVolume);
+    const safeAskVolume = this.safeFormatVolume(totalAskVolume);
+    const safeRatio = askToBidRatio ? askToBidRatio.toFixed(2) : '0.00';
+    const safePrice = currentPrice ? currentPrice.toFixed(6) : '0.000000';
+
     const isGoldenSignal = askToBidRatio >= 2.75 && totalBidVolume < 100000;
 
     return `🚨 *SENTRYCOIN v2.0 ${signalType} ALERT* 🚨
 
 📊 *Asset:* ${symbol}
-💰 *Current Price:* $${currentPrice.toFixed(6)}
+💰 *Current Price:* $${safePrice}
 ⚠️ *Risk Level:* ${riskLevel}
 🎯 *Signal Type:* ${signalType} (${confidence} Confidence)
 
 📈 *Golden Signal Analysis:*
-• Ask/Bid Ratio: *${askToBidRatio.toFixed(2)}x* ${askToBidRatio >= 2.75 ? '✅' : '❌'} (Threshold: ≥2.75x)
-• Total Bid Volume: ${formatVolume(totalBidVolume)} ${totalBidVolume < 100000 ? '✅' : '❌'} (Threshold: <100k)
-• Total Ask Volume: ${formatVolume(totalAskVolume)}
+• Ask/Bid Ratio: *${safeRatio}x* ${askToBidRatio >= 2.75 ? '✅' : '❌'} (Threshold: ≥2.75x)
+• Total Bid Volume: ${safeVolume} ${totalBidVolume < 100000 ? '✅' : '❌'} (Threshold: <100k)
+• Total Ask Volume: ${safeAskVolume}
 • Golden Signal: ${isGoldenSignal ? '🟢 CONFIRMED' : '🟡 PARTIAL'}
 
 🎯 *Analysis:* ${isGoldenSignal ? 'CRITICAL liquidity crisis detected' : 'Market stress indicators present'}
