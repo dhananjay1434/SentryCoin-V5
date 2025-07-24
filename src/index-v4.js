@@ -8,7 +8,10 @@
  */
 
 import SentryCoinV4 from './sentrycoin-v4.js';
+import QuantitativeAPI from './quantitative-api.js';
+import MonitoringDashboard from '../monitoring-dashboard.js';
 import express from 'express';
+import cors from 'cors';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -29,6 +32,11 @@ async function main() {
   const port = process.env.PORT || 3000;
   
   app.use(express.json());
+  app.use(cors());
+
+  // Initialize quantitative API and monitoring dashboard
+  let quantitativeAPI = null;
+  let monitoringDashboard = null;
 
   // Health check endpoint
   app.get('/', (req, res) => {
@@ -261,6 +269,17 @@ async function main() {
       console.log('🧠 Market Classification: ACTIVE');
       console.log('🎯 Dual-Strategy Trading: MONITORING');
       console.log('📊 Real-time Analysis: RUNNING');
+
+      // Initialize quantitative API endpoints
+      quantitativeAPI = new QuantitativeAPI(sentryCoinSystem);
+      app.use('/api/quantitative', quantitativeAPI.getRouter());
+      console.log('📊 Quantitative API: ACTIVE');
+
+      // Initialize monitoring dashboard
+      monitoringDashboard = new MonitoringDashboard(sentryCoinSystem);
+      monitoringDashboard.start(3001);
+      console.log('📈 Monitoring Dashboard: http://localhost:3001');
+
     } else {
       console.error('\n❌ Failed to start SentryCoin v4.0');
       console.log('🌐 API server will continue running for diagnostics');
@@ -274,9 +293,17 @@ async function main() {
   // Handle graceful shutdown
   process.on('SIGINT', async () => {
     console.log('\n🛑 Received SIGINT, shutting down gracefully...');
+
+    if (monitoringDashboard) {
+      monitoringDashboard.stop();
+      console.log('📈 Monitoring Dashboard: STOPPED');
+    }
+
     if (sentryCoinSystem) {
       await sentryCoinSystem.shutdown();
     }
+
+    console.log('✅ Graceful shutdown complete');
     process.exit(0);
   });
   
