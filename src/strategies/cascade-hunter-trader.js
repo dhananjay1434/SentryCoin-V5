@@ -30,12 +30,12 @@ class CascadeHunterTrader extends EventEmitter {
     this.stopLossPercent = parseFloat(process.env.CASCADE_STOP_LOSS || '1.5');
     this.takeProfitPercent = parseFloat(process.env.CASCADE_TAKE_PROFIT || '3.0');
 
-    // HFT-OPTIMIZED: Smart risk controls (not frequency limits)
-    this.maxConcurrentPositions = parseInt(process.env.MAX_ACTIVE_POSITIONS || '25');
-    this.maxCorrelatedPositions = parseInt(process.env.MAX_CORRELATED_POSITIONS || '8');
-    this.signalCooldownMs = parseInt(process.env.SIGNAL_COOLDOWN_MILLISECONDS || '500');
-    this.maxExposurePercentage = parseFloat(process.env.MAX_EXPOSURE_PERCENTAGE || '15');
-    this.positionDiversityRequired = process.env.POSITION_DIVERSITY_REQUIRED === 'true';
+    // PROFESSIONAL MID-FREQUENCY: Quality over quantity
+    this.maxConcurrentPositions = parseInt(process.env.MAX_ACTIVE_POSITIONS || '3');
+    this.signalCooldownMinutes = parseInt(process.env.SIGNAL_COOLDOWN_MINUTES || '15');
+    this.requireRegimeConfirmation = process.env.REQUIRE_REGIME_CONFIRMATION === 'true';
+    this.maxExposurePercentage = parseFloat(process.env.MAX_EXPOSURE_PERCENTAGE || '10');
+    this.enableInstitutionalSizing = process.env.ENABLE_INSTITUTIONAL_SIZING === 'true';
 
     // CRITICAL FIX: Dynamic stop-loss controls
     this.enableTrailingStop = process.env.ENABLE_TRAILING_STOP_LOSS === 'true';
@@ -103,29 +103,33 @@ class CascadeHunterTrader extends EventEmitter {
       return;
     }
 
-    // HFT-OPTIMIZED FIX 1: Smart position limits (not blanket limits)
+    // PROFESSIONAL CHECK 1: Quality over quantity
     if (this.activePositions.size >= this.maxConcurrentPositions) {
-      console.log(`🚫 TOTAL POSITION LIMIT REACHED (${this.activePositions.size}/${this.maxConcurrentPositions}) - Signal ignored`);
+      console.log(`🎯 PROFESSIONAL LIMIT: Maximum ${this.maxConcurrentPositions} high-quality positions - Signal ignored`);
       await this.logSignal(signal);
       return;
     }
 
-    // HFT-OPTIMIZED FIX 2: Correlation-based limits (not frequency limits)
-    const correlatedPositions = this.getCorrelatedPositions(signal.type);
-    if (correlatedPositions.length >= this.maxCorrelatedPositions) {
-      console.log(`🚫 CORRELATED POSITION LIMIT REACHED (${correlatedPositions.length}/${this.maxCorrelatedPositions}) for ${signal.type} - Signal ignored`);
-      await this.logSignal(signal);
-      return;
-    }
-
-    // HFT-OPTIMIZED FIX 3: Minimal cooldown (microsecond-friendly)
+    // PROFESSIONAL CHECK 2: Time to analyze market reaction
     const now = Date.now();
     const timeSinceLastPosition = now - this.lastPositionTime;
+    const cooldownMs = this.signalCooldownMinutes * 60 * 1000;
 
-    if (timeSinceLastPosition < this.signalCooldownMs) {
-      // Very short cooldown - doesn't kill HFT speed
+    if (timeSinceLastPosition < cooldownMs) {
+      const remainingMinutes = Math.ceil((cooldownMs - timeSinceLastPosition) / 60000);
+      console.log(`⏰ PROFESSIONAL COOLDOWN: Analyzing market reaction (${remainingMinutes} minutes remaining)`);
       await this.logSignal(signal);
       return;
+    }
+
+    // PROFESSIONAL CHECK 3: Multi-signal validation
+    if (this.requireRegimeConfirmation) {
+      const conflictCheck = await this.validateRegimeCoherence(signal);
+      if (!conflictCheck.isValid) {
+        console.log(`🧠 REGIME CONFLICT: ${conflictCheck.reason} - Signal ignored`);
+        await this.logSignal(signal);
+        return;
+      }
     }
 
     // CRITICAL FIX 3: Signal quality assessment
@@ -281,16 +285,40 @@ class CascadeHunterTrader extends EventEmitter {
   }
 
   /**
-   * HFT-OPTIMIZED: Get positions of same type (for correlation limits)
+   * PROFESSIONAL: Multi-signal regime validation
    */
-  getCorrelatedPositions(signalType) {
-    const correlatedPositions = [];
-    for (const [id, position] of this.activePositions) {
-      if (position.status === 'OPEN' && position.strategy === signalType) {
-        correlatedPositions.push(position);
-      }
+  async validateRegimeCoherence(cascadeSignal) {
+    // This would integrate with the engine's other detectors
+    // For now, implement basic validation logic
+
+    // Check signal quality meets institutional standards
+    if (cascadeSignal.totalBidVolume < 500000) {
+      return {
+        isValid: false,
+        reason: 'Insufficient liquidity for institutional-grade trade'
+      };
     }
-    return correlatedPositions;
+
+    // Check momentum strength
+    if (cascadeSignal.momentum > -0.8) {
+      return {
+        isValid: false,
+        reason: 'Momentum insufficient for high-conviction trade'
+      };
+    }
+
+    // Check pressure ratio
+    if (cascadeSignal.askToBidRatio < 4.0) {
+      return {
+        isValid: false,
+        reason: 'Pressure ratio below institutional threshold'
+      };
+    }
+
+    return {
+      isValid: true,
+      reason: 'Institutional-grade signal validated'
+    };
   }
 
   /**
