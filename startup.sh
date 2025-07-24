@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# SentryCoin v4.0 Production Startup Script
+# SentryCoin v4.1.1 Production Startup Script
 # Ensures reliable startup with proper error handling
 
-echo "🛡️ Starting SentryCoin v4.0 Production Trading Engine..."
+echo "🛡️ Starting SentryCoin v4.1.1 Market Intelligence Engine..."
 echo "📊 Environment: $NODE_ENV"
 echo "💰 Symbol: $SYMBOL"
 echo "🛡️ Paper Trading: $PAPER_TRADING"

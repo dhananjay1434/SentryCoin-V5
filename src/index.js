@@ -10,7 +10,7 @@
  * - Comprehensive reporting and monitoring
  *
  * @author SentryCoin Team
- * @version 4.1.0
+ * @version 4.1.1
  * @license MIT
  */
 
@@ -70,7 +70,7 @@ async function main() {
     const status = sentryCoinSystem ? sentryCoinSystem.getSystemStatus() : { status: 'initializing' };
     res.json({
       service: 'SentryCoin v4.1 Production Market Intelligence Engine',
-      version: '4.1.0',
+      version: '4.1.1',
       status: sentryCoinSystem?.isRunning ? 'running' : 'stopped',
       uptime: status.uptime || 0,
       timestamp: new Date().toISOString(),
@@ -82,7 +82,7 @@ async function main() {
     res.json({
       status: 'ok',
       service: 'sentrycoin-v4.1',
-      version: '4.1.0',
+      version: '4.1.1',
       timestamp: new Date().toISOString()
     });
   });
@@ -104,8 +104,9 @@ async function main() {
 
     const status = sentryCoinSystem.getSystemStatus();
     res.json({
-      trifectaTrading: status.trifectaTrader,
-      squeezeTrading: status.squeezeTrader,
+      cascadeHunterTrader: status.cascadeHunterTrader,
+      coilWatcher: status.coilWatcher,
+      shakeoutDetector: status.shakeoutDetector,
       classifier: status.classifier,
       timestamp: new Date().toISOString()
     });

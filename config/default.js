@@ -10,16 +10,17 @@ export const config = {
   // Application metadata
   app: {
     name: 'SentryCoin',
-    version: '4.0.0',
+    version: '4.1.1',
     environment: process.env.NODE_ENV || 'development'
   },
 
-  // Trading configuration
+  // Trading configuration (v4.1)
   trading: {
     symbol: process.env.SYMBOL || 'SPKUSDT',
     paperTrading: process.env.PAPER_TRADING !== 'false', // Default to paper trading
-    trifectaEnabled: process.env.TRIFECTA_TRADING_ENABLED === 'true',
-    squeezeEnabled: process.env.SQUEEZE_TRADING_ENABLED === 'true'
+    cascadeHunterEnabled: process.env.CASCADE_TRADING_ENABLED === 'true',
+    coilWatcherEnabled: process.env.COIL_WATCHER_ENABLED === 'true',
+    shakeoutDetectorEnabled: process.env.SHAKEOUT_DETECTOR_ENABLED === 'true'
   },
 
   // Market data configuration
@@ -37,18 +38,18 @@ export const config = {
     weakMomentumThreshold: parseFloatEnv('WEAK_MOMENTUM_THRESHOLD', -0.1)
   },
 
-  // Risk management
+  // Risk management (v4.1)
   risk: {
-    trifecta: {
-      maxPosition: parseFloatEnv('TRIFECTA_MAX_POSITION', 1000),
-      stopLoss: parseFloatEnv('TRIFECTA_STOP_LOSS', 2.0),
-      takeProfit: parseFloatEnv('TRIFECTA_TAKE_PROFIT', 5.0)
+    cascadeHunter: {
+      maxPosition: parseFloatEnv('CASCADE_MAX_POSITION', 1000),
+      stopLoss: parseFloatEnv('CASCADE_STOP_LOSS', 2.0),
+      takeProfit: parseFloatEnv('CASCADE_TAKE_PROFIT', 5.0)
     },
-    squeeze: {
-      maxPosition: parseFloatEnv('SQUEEZE_MAX_POSITION', 500),
-      stopLoss: parseFloatEnv('SQUEEZE_STOP_LOSS', 1.5),
-      takeProfit: parseFloatEnv('SQUEEZE_TAKE_PROFIT', 3.0),
-      timeExit: parseIntEnv('SQUEEZE_TIME_EXIT', 300) // 5 minutes
+    coilWatcher: {
+      cooldownMinutes: parseIntEnv('COIL_COOLDOWN_MINUTES', 10)
+    },
+    shakeoutDetector: {
+      cooldownMinutes: parseIntEnv('SHAKEOUT_COOLDOWN_MINUTES', 15)
     }
   },
 
@@ -140,8 +141,9 @@ export function getEnvironmentConfig() {
       },
       trading: {
         paperTrading: true,
-        trifectaEnabled: false,
-        squeezeEnabled: false
+        cascadeHunterEnabled: false,
+        coilWatcherEnabled: false,
+        shakeoutDetectorEnabled: false
       }
     }
   };

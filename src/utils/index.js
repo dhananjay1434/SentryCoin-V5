@@ -8,7 +8,7 @@
 export * from '../utils.js';
 
 // Application constants
-export const APP_VERSION = '4.0.0';
+export const APP_VERSION = '4.1.1';
 export const APP_NAME = 'SentryCoin';
 
 // Trading constants

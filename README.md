@@ -82,23 +82,24 @@ npm run connectivity
 
 ## 📊 **System Architecture**
 
-### **Core Components**
+### **Core Components (v4.1.1)**
 ```
 src/
-├── core/                    # Core trading engine
-│   ├── sentrycoin-engine.js # Main orchestrator
-│   ├── predictor.js         # Order book processor
-│   └── market-classifier.js # Signal classification
-├── strategies/              # Trading strategies
-│   ├── trifecta-trader.js   # Short strategy (flash crash)
-│   └── squeeze-trader.js    # Long strategy (absorption)
-├── services/               # External services
-│   ├── alerter.js          # Telegram notifications
-│   ├── cloud-storage.js    # Data persistence
-│   └── signal-validator.js # Signal validation
-├── reporting/              # Analytics & reporting
+├── core/                         # Core trading engine
+│   ├── sentrycoin-engine.js      # Main orchestrator
+│   ├── predictor.js              # Order book processor
+│   └── market-classifier.js     # Market regime detection
+├── strategies/                   # v4.1 Trading strategies
+│   ├── cascade-hunter-trader.js  # SHORT trading (Distribution Phase)
+│   ├── coil-watcher.js          # Alert-only (Accumulation Phase)
+│   └── shakeout-detector.js     # Alert-only (Stop Hunt Phase)
+├── services/                    # External services
+│   ├── alerter.js               # Telegram notifications
+│   ├── cloud-storage.js         # Data persistence
+│   └── signal-validator.js      # Signal validation
+├── reporting/                   # Analytics & reporting
 │   └── detailed-reporter.js
-└── utils/                  # Shared utilities
+└── utils/                       # Shared utilities
     └── index.js
 ```
 

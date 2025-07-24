@@ -1,38 +1,40 @@
 #!/usr/bin/env node
 
 /**
- * SentryCoin v4.0 Backtesting Engine
- * 
- * Tests the dual-strategy system against historical data to validate
- * the Trifecta Conviction and Absorption Squeeze strategies
+ * SentryCoin v4.1 Backtesting Engine
+ *
+ * Tests the v4.1 market intelligence system against historical data to validate
+ * the CASCADE_HUNTER, COIL_WATCHER, and SHAKEOUT_DETECTOR strategies
  */
 
 import MarketClassifier from '../src/core/market-classifier.js';
-import TrifectaTrader from '../src/strategies/trifecta-trader.js';
-import SqueezeTrader from '../src/strategies/squeeze-trader.js';
+import CascadeHunterTrader from '../src/strategies/cascade-hunter-trader.js';
+import CoilWatcher from '../src/strategies/coil-watcher.js';
+import ShakeoutDetector from '../src/strategies/shakeout-detector.js';
 import fs from 'fs/promises';
 
-class SentryCoinV4Backtester {
+class SentryCoinV41Backtester {
   constructor() {
     this.symbol = 'SPKUSDT';
     this.classifier = new MarketClassifier(this.symbol);
-    this.trifectaTrader = new TrifectaTrader(this.symbol);
-    this.squeezeTrader = new SqueezeTrader(this.symbol);
-    
-    // Enable paper trading for backtesting
-    this.trifectaTrader.enabled = true;
-    this.squeezeTrader.enabled = true;
-    this.trifectaTrader.paperTrading = true;
-    this.squeezeTrader.paperTrading = true;
-    
+    this.cascadeHunterTrader = new CascadeHunterTrader(this.symbol);
+    this.coilWatcher = new CoilWatcher(this.symbol);
+    this.shakeoutDetector = new ShakeoutDetector(this.symbol);
+
+    // Enable components for backtesting
+    this.cascadeHunterTrader.enabled = true;
+    this.cascadeHunterTrader.paperTrading = true;
+    this.coilWatcher.enabled = true;
+    this.shakeoutDetector.enabled = true;
+
     // Backtest results
     this.results = {
       totalClassifications: 0,
-      trifectaSignals: [],
-      squeezeSignals: [],
-      trifectaPerformance: null,
-      squeezePerformance: null,
-      combinedPerformance: null
+      cascadeHunterSignals: [],
+      coilWatcherSignals: [],
+      shakeoutDetectorSignals: [],
+      cascadeHunterPerformance: null,
+      combinedIntelligence: null
     };
     
     // Historical validation dataset (from the 19 validated signals)
