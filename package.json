@@ -1,7 +1,7 @@
 {
   "name": "sentrycoin-trading-engine",
-  "version": "4.0.0",
-  "description": "SentryCoin v4.0 - Production Trading Engine with Dual-Strategy Classification",
+  "version": "4.1.0",
+  "description": "SentryCoin v4.1 - Production Market Intelligence Engine with Three-Regime Detection",
   "main": "src/index.js",
   "type": "module",
   "scripts": {

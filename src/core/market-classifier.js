@@ -1,11 +1,12 @@
 /**
- * SentryCoin v4.0 - Market Microstructure Classification Engine
- * 
- * Transforms the failed "crash predictor" into a sophisticated dual-strategy
- * market classification system that identifies two distinct tradable phenomena:
- * 
- * 1. TRIFECTA_CONVICTION: Liquidity Cascade (Short Strategy)
- * 2. ABSORPTION_SQUEEZE: Forced Absorption (Long Strategy)
+ * SentryCoin v4.1 - Market Regime Detection Engine
+ *
+ * Comprehensive market intelligence platform that identifies three distinct,
+ * mutually exclusive market regimes based on forensic log analysis:
+ *
+ * 1. CASCADE_HUNTER: Distribution Phase (Active SHORT Trading)
+ * 2. COIL_WATCHER: Accumulation/Manipulation Phase (Informational ALERT)
+ * 3. SHAKEOUT_DETECTOR: Stop Hunt Phase (Potential LONG Setup ALERT)
  */
 
 import { EventEmitter } from 'events';
@@ -19,32 +20,45 @@ class MarketClassifier extends EventEmitter {
     this.symbol = symbol;
     this.config = config;
 
-    // Configurable thresholds - use config if provided, otherwise environment variables
-    this.pressureThreshold = config?.signals?.pressureThreshold || parseFloatEnv('PRESSURE_THRESHOLD', 3.0);
-    this.liquidityThreshold = config?.signals?.liquidityThreshold || parseIntEnv('LIQUIDITY_THRESHOLD', 100000);
-    this.strongMomentumThreshold = config?.signals?.strongMomentumThreshold || parseFloatEnv('STRONG_MOMENTUM_THRESHOLD', -0.3);
-    this.weakMomentumThreshold = config?.signals?.weakMomentumThreshold || parseFloatEnv('WEAK_MOMENTUM_THRESHOLD', -0.1);
+    // v4.1 Regime Detection Thresholds - calibrated from forensic log analysis
+    // CASCADE_HUNTER thresholds (validated TRIFECTA conditions)
+    this.cascadePressureThreshold = config?.signals?.cascadePressureThreshold || parseFloatEnv('CASCADE_PRESSURE_THRESHOLD', 3.0);
+    this.cascadeLiquidityThreshold = config?.signals?.cascadeLiquidityThreshold || parseIntEnv('CASCADE_LIQUIDITY_THRESHOLD', 100000);
+    this.cascadeMomentumThreshold = config?.signals?.cascadeMomentumThreshold || parseFloatEnv('CASCADE_MOMENTUM_THRESHOLD', -0.3);
+
+    // COIL_WATCHER thresholds (accumulation/manipulation detection)
+    this.coilPressureThreshold = config?.signals?.coilPressureThreshold || parseFloatEnv('COIL_PRESSURE_THRESHOLD', 2.0);
+    this.coilLiquidityThreshold = config?.signals?.coilLiquidityThreshold || parseIntEnv('COIL_LIQUIDITY_THRESHOLD', 300000);
+    this.coilMomentumMin = config?.signals?.coilMomentumMin || parseFloatEnv('COIL_MOMENTUM_MIN', -0.1);
+    this.coilMomentumMax = config?.signals?.coilMomentumMax || parseFloatEnv('COIL_MOMENTUM_MAX', 0.1);
+
+    // SHAKEOUT_DETECTOR thresholds (stop hunt detection)
+    this.shakeoutPressureThreshold = config?.signals?.shakeoutPressureThreshold || parseFloatEnv('SHAKEOUT_PRESSURE_THRESHOLD', 1.5);
+    this.shakeoutLiquidityThreshold = config?.signals?.shakeoutLiquidityThreshold || parseIntEnv('SHAKEOUT_LIQUIDITY_THRESHOLD', 250000);
+    this.shakeoutMomentumThreshold = config?.signals?.shakeoutMomentumThreshold || parseFloatEnv('SHAKEOUT_MOMENTUM_THRESHOLD', -0.5);
     
-    // Classification statistics
+    // v4.1 Regime Detection Statistics
     this.stats = {
       totalClassifications: 0,
-      trifectaConvictions: 0,
-      absorptionSqueezes: 0,
-      pressureSpikes: 0,
+      cascadeHunterSignals: 0,
+      coilWatcherSignals: 0,
+      shakeoutDetectorSignals: 0,
       noSignals: 0,
       startTime: Date.now()
     };
     
-    console.log(`🧠 Market Classifier v4.0 initialized for ${symbol}`);
-    console.log(`⚙️ Pressure Threshold: ${this.pressureThreshold}x`);
-    console.log(`⚙️ Liquidity Threshold: ${this.liquidityThreshold}`);
-    console.log(`⚙️ Strong Momentum: ≤${this.strongMomentumThreshold}%`);
-    console.log(`⚙️ Weak Momentum: ≤${this.weakMomentumThreshold}%`);
+    console.log(`🧠 Market Regime Detector v4.1 initialized for ${symbol}`);
+    console.log(`🎯 CASCADE_HUNTER: Pressure≥${this.cascadePressureThreshold}x, Liquidity≥${this.cascadeLiquidityThreshold}, Momentum≤${this.cascadeMomentumThreshold}%`);
+    console.log(`⚠️ COIL_WATCHER: Pressure<${this.coilPressureThreshold}x, Liquidity≥${this.coilLiquidityThreshold}, Momentum ${this.coilMomentumMin}% to ${this.coilMomentumMax}%`);
+    console.log(`💡 SHAKEOUT_DETECTOR: Pressure<${this.shakeoutPressureThreshold}x, Liquidity≥${this.shakeoutLiquidityThreshold}, Momentum≤${this.shakeoutMomentumThreshold}%`);
   }
 
   /**
-   * Core classification logic - the heart of v4.0
-   * 
+   * Core regime detection logic - the heart of v4.1
+   *
+   * Implements three mutually exclusive market regime detection strategies
+   * based on forensic log analysis of pump-and-dump lifecycle patterns.
+   *
    * @param {Object} marketData - Current market microstructure data
    * @returns {Object|null} Classification result or null if no signal
    */
@@ -60,63 +74,49 @@ class MarketClassifier extends EventEmitter {
 
     this.stats.totalClassifications++;
 
-    // Step 1: Check if basic pressure condition is met (required for both signals)
-    const pressureCondition = askToBidRatio > this.pressureThreshold;
+    // 🔍 ENHANCED DIAGNOSTIC LOGGING - Show conditions for all three regimes
+    const cascadeConditions = this.evaluateCascadeConditions(askToBidRatio, totalBidVolume, momentum);
+    const coilConditions = this.evaluateCoilConditions(askToBidRatio, totalBidVolume, momentum);
+    const shakeoutConditions = this.evaluateShakeoutConditions(askToBidRatio, totalBidVolume, momentum);
 
-    // 🔍 ENHANCED DIAGNOSTIC LOGGING - Show conditions for both signal types
-    const pressureCheck = pressureCondition ? '✅' : '❌';
+    const diagnosticLog = `[DIAGNOSTIC v4.1] Market Regime Analysis:\n` +
+                         `   CASCADE:  Pressure ${cascadeConditions.pressureCheck} (${askToBidRatio.toFixed(2)}x vs ${this.cascadePressureThreshold}x), ` +
+                         `Liquidity ${cascadeConditions.liquidityCheck} (${(totalBidVolume/1000).toFixed(1)}k ≥ ${(this.cascadeLiquidityThreshold/1000).toFixed(1)}k), ` +
+                         `Momentum ${cascadeConditions.momentumCheck} (${momentum.toFixed(3)}% ≤ ${this.cascadeMomentumThreshold}%)\n` +
+                         `   COIL:     Pressure ${coilConditions.pressureCheck} (${askToBidRatio.toFixed(2)}x < ${this.coilPressureThreshold}x), ` +
+                         `Liquidity ${coilConditions.liquidityCheck} (${(totalBidVolume/1000).toFixed(1)}k ≥ ${(this.coilLiquidityThreshold/1000).toFixed(1)}k), ` +
+                         `Momentum ${coilConditions.momentumCheck} (${this.coilMomentumMin}% < ${momentum.toFixed(3)}% < ${this.coilMomentumMax}%)\n` +
+                         `   SHAKEOUT: Pressure ${shakeoutConditions.pressureCheck} (${askToBidRatio.toFixed(2)}x < ${this.shakeoutPressureThreshold}x), ` +
+                         `Liquidity ${shakeoutConditions.liquidityCheck} (${(totalBidVolume/1000).toFixed(1)}k ≥ ${(this.shakeoutLiquidityThreshold/1000).toFixed(1)}k), ` +
+                         `Momentum ${shakeoutConditions.momentumCheck} (${momentum.toFixed(3)}% ≤ ${this.shakeoutMomentumThreshold}%)`;
 
-    // Trifecta conditions (HIGH liquidity + STRONG momentum)
-    const trifectaLiquidityCheck = totalBidVolume >= this.liquidityThreshold ? '✅' : '❌';
-    const trifectaMomentumCheck = momentum <= this.strongMomentumThreshold ? '✅' : '❌';
-
-    // Squeeze conditions (LOW liquidity + WEAK momentum)
-    const squeezeLiquidityCheck = totalBidVolume < (this.liquidityThreshold * 0.5) ? '✅' : '❌';
-    const squeezeMomentumCheck = (momentum > -0.2 && momentum < 0.2) ? '✅' : '❌';
-
-    const diagnosticLog = `[DIAGNOSTIC] Pressure ${pressureCheck} (${askToBidRatio.toFixed(2)}x vs ${this.pressureThreshold}x)\n` +
-                         `   TRIFECTA:  Liquidity ${trifectaLiquidityCheck} (${(totalBidVolume/1000).toFixed(1)}k ≥ ${(this.liquidityThreshold/1000).toFixed(1)}k), ` +
-                         `Momentum ${trifectaMomentumCheck} (${momentum.toFixed(3)}% ≤ ${this.strongMomentumThreshold}%)\n` +
-                         `   SQUEEZE:   Liquidity ${squeezeLiquidityCheck} (${(totalBidVolume/1000).toFixed(1)}k < ${(this.liquidityThreshold * 0.5/1000).toFixed(1)}k), ` +
-                         `Momentum ${squeezeMomentumCheck} (-0.2% < ${momentum.toFixed(3)}% < 0.2%)`;
-
-    // Log every 10th classification or when conditions are close to triggering
+    // Log every 10th classification or when any conditions are close to triggering
     const shouldLog = this.stats.totalClassifications % 10 === 0 ||
-                     askToBidRatio > (this.pressureThreshold * 0.8) ||
-                     totalBidVolume >= (this.liquidityThreshold * 0.8) ||
-                     totalBidVolume < (this.liquidityThreshold * 0.6) ||
+                     askToBidRatio > (this.cascadePressureThreshold * 0.8) ||
+                     totalBidVolume >= (this.cascadeLiquidityThreshold * 0.8) ||
+                     totalBidVolume >= (this.coilLiquidityThreshold * 0.8) ||
+                     totalBidVolume >= (this.shakeoutLiquidityThreshold * 0.8) ||
                      Math.abs(momentum) > 0.1;
 
     if (shouldLog) {
       console.log(diagnosticLog);
     }
 
-    if (!pressureCondition) {
-      // No signal - pressure condition not met (required for both signals)
-      this.stats.noSignals++;
-
-      if (shouldLog) {
-        console.log(`🔍 Signal blocked: PRESSURE_TOO_LOW (${askToBidRatio.toFixed(2)}x < ${this.pressureThreshold}x)`);
-      }
-
-      return null;
-    }
-
-    // Step 2: Classify based on momentum and liquidity (the critical differentiators)
-    const classification = this.classifyByMomentum(momentum, {
+    // Step 1: Evaluate regimes in priority order (mutually exclusive)
+    const classification = this.classifyMarketRegime({
       askToBidRatio,
       totalBidVolume,
       totalAskVolume,
       currentPrice,
+      momentum,
       timestamp,
-      pressureCondition,
       symbol: this.symbol
     });
 
     if (classification) {
-      console.log(`🚨 SIGNAL GENERATED: ${classification.type} - ${classification.phenomenon}`);
+      console.log(`🚨 REGIME DETECTED: ${classification.type} - ${classification.description}`);
 
-      // Emit the appropriate event for the trading modules
+      // Emit the appropriate event for the trading/alert modules
       this.emit(classification.type, classification);
 
       // Log the classification
@@ -125,39 +125,79 @@ class MarketClassifier extends EventEmitter {
       // Save to cloud storage for analysis
       this.saveClassification(classification);
     } else {
-      console.log(`🔍 No signal: Momentum insufficient (${momentum.toFixed(3)}% > ${this.strongMomentumThreshold}%)`);
+      this.stats.noSignals++;
+      if (shouldLog) {
+        console.log(`🔍 No regime detected: Market conditions do not match any defined patterns`);
+      }
     }
 
     return classification;
   }
 
   /**
-   * COMPLETELY REWRITTEN: Mutually exclusive signal classification
-   * Each signal type has distinct, non-overlapping conditions based on liquidity AND momentum
+   * Helper method to evaluate CASCADE_HUNTER conditions
    */
-  classifyByMomentum(momentum, marketData) {
-    const { askToBidRatio, totalBidVolume, totalAskVolume } = marketData;
-
-    // 🎯 TRIFECTA CONVICTION SIGNAL (SHORT Strategy)
-    // Requires: HIGH pressure + HIGH liquidity + STRONG negative momentum
-    const trifectaConditions = {
-      pressure: askToBidRatio >= this.pressureThreshold,           // > 3.0x
-      liquidity: totalBidVolume >= this.liquidityThreshold,       // >= 100k (HIGH liquidity)
-      momentum: momentum <= this.strongMomentumThreshold          // <= -0.3% (STRONG negative)
+  evaluateCascadeConditions(askToBidRatio, totalBidVolume, momentum) {
+    return {
+      pressure: askToBidRatio >= this.cascadePressureThreshold,
+      liquidity: totalBidVolume >= this.cascadeLiquidityThreshold,
+      momentum: momentum <= this.cascadeMomentumThreshold,
+      pressureCheck: askToBidRatio >= this.cascadePressureThreshold ? '✅' : '❌',
+      liquidityCheck: totalBidVolume >= this.cascadeLiquidityThreshold ? '✅' : '❌',
+      momentumCheck: momentum <= this.cascadeMomentumThreshold ? '✅' : '❌'
     };
+  }
 
-    const isTrifectaSignal = trifectaConditions.pressure && trifectaConditions.liquidity && trifectaConditions.momentum;
+  /**
+   * Helper method to evaluate COIL_WATCHER conditions
+   */
+  evaluateCoilConditions(askToBidRatio, totalBidVolume, momentum) {
+    return {
+      pressure: askToBidRatio < this.coilPressureThreshold,
+      liquidity: totalBidVolume >= this.coilLiquidityThreshold,
+      momentum: momentum > this.coilMomentumMin && momentum < this.coilMomentumMax,
+      pressureCheck: askToBidRatio < this.coilPressureThreshold ? '✅' : '❌',
+      liquidityCheck: totalBidVolume >= this.coilLiquidityThreshold ? '✅' : '❌',
+      momentumCheck: (momentum > this.coilMomentumMin && momentum < this.coilMomentumMax) ? '✅' : '❌'
+    };
+  }
 
-    if (isTrifectaSignal) {
-      console.log(`✅ TRIFECTA CONDITIONS MET: Pressure=${askToBidRatio.toFixed(2)}x, Liquidity=${(totalBidVolume/1000).toFixed(1)}k, Momentum=${momentum.toFixed(3)}%`);
-      this.stats.trifectaConvictions++;
+  /**
+   * Helper method to evaluate SHAKEOUT_DETECTOR conditions
+   */
+  evaluateShakeoutConditions(askToBidRatio, totalBidVolume, momentum) {
+    return {
+      pressure: askToBidRatio < this.shakeoutPressureThreshold,
+      liquidity: totalBidVolume >= this.shakeoutLiquidityThreshold,
+      momentum: momentum <= this.shakeoutMomentumThreshold,
+      pressureCheck: askToBidRatio < this.shakeoutPressureThreshold ? '✅' : '❌',
+      liquidityCheck: totalBidVolume >= this.shakeoutLiquidityThreshold ? '✅' : '❌',
+      momentumCheck: momentum <= this.shakeoutMomentumThreshold ? '✅' : '❌'
+    };
+  }
+
+  /**
+   * v4.1 REGIME CLASSIFICATION: Three mutually exclusive market regimes
+   * Evaluated in priority order to ensure no conflicts
+   */
+  classifyMarketRegime(marketData) {
+    const { askToBidRatio, totalBidVolume, momentum } = marketData;
+
+    // 🎯 STRATEGY 1: CASCADE_HUNTER (Active SHORT Trading)
+    // Regime: Distribution Phase - Validated TRIFECTA conditions
+    const cascadeConditions = this.evaluateCascadeConditions(askToBidRatio, totalBidVolume, momentum);
+    const isCascadeSignal = cascadeConditions.pressure && cascadeConditions.liquidity && cascadeConditions.momentum;
+
+    if (isCascadeSignal) {
+      console.log(`✅ CASCADE_HUNTER CONDITIONS MET: Pressure=${askToBidRatio.toFixed(2)}x, Liquidity=${(totalBidVolume/1000).toFixed(1)}k, Momentum=${momentum.toFixed(3)}%`);
+      this.stats.cascadeHunterSignals++;
 
       return {
-        type: 'TRIFECTA_CONVICTION_SIGNAL',
+        type: 'CASCADE_HUNTER_SIGNAL',
         strategy: 'SHORT',
         confidence: 'HIGH',
-        phenomenon: 'LIQUIDITY_CASCADE',
-        description: 'High liquidity being overwhelmed by massive sell pressure',
+        regime: 'DISTRIBUTION_PHASE',
+        description: 'High liquidity being overwhelmed by massive sell pressure - Active dumping detected',
         symbol: marketData.symbol || this.symbol || 'UNKNOWN',
         exchange: 'BINANCE',
         currentPrice: marketData.currentPrice,
@@ -167,73 +207,30 @@ class MarketClassifier extends EventEmitter {
         timestamp: marketData.timestamp,
         momentum,
         classification: {
-          pressure: trifectaConditions.pressure,
-          liquidity: trifectaConditions.liquidity,
+          pressure: cascadeConditions.pressure,
+          liquidity: cascadeConditions.liquidity,
           momentum: 'STRONG_NEGATIVE',
-          expectedOutcome: 'CONTINUED_DECLINE'
+          expectedOutcome: 'CONTINUED_DECLINE',
+          tradingAction: 'LIVE_SHORT_ENABLED'
         }
       };
     }
 
-    // 🔄 ABSORPTION SQUEEZE SIGNAL (LONG Strategy)
-    // Requires: HIGH pressure + LOW liquidity + WEAK/NEUTRAL momentum
-    const lowLiquidityThreshold = this.liquidityThreshold * 0.5; // 50k for LOW liquidity
-    const squeezeConditions = {
-      pressure: askToBidRatio >= this.pressureThreshold,           // > 3.0x
-      liquidity: totalBidVolume < lowLiquidityThreshold,          // < 50k (LOW liquidity)
-      momentum: momentum > -0.2 && momentum < 0.2                 // Weak/neutral momentum range
-    };
+    // ⚠️ STRATEGY 2: COIL_WATCHER (Informational ALERT - Neutral)
+    // Regime: Accumulation/Manipulation Phase - High liquidity, low volatility
+    const coilConditions = this.evaluateCoilConditions(askToBidRatio, totalBidVolume, momentum);
+    const isCoilSignal = coilConditions.pressure && coilConditions.liquidity && coilConditions.momentum;
 
-    const isSqueezeSignal = squeezeConditions.pressure && squeezeConditions.liquidity && squeezeConditions.momentum;
-
-    if (isSqueezeSignal) {
-      console.log(`✅ ABSORPTION SQUEEZE CONDITIONS MET: Pressure=${askToBidRatio.toFixed(2)}x, Liquidity=${(totalBidVolume/1000).toFixed(1)}k, Momentum=${momentum.toFixed(3)}%`);
-      this.stats.absorptionSqueezes++;
+    if (isCoilSignal) {
+      console.log(`⚠️ COIL_WATCHER CONDITIONS MET: Pressure=${askToBidRatio.toFixed(2)}x, Liquidity=${(totalBidVolume/1000).toFixed(1)}k, Momentum=${momentum.toFixed(3)}%`);
+      this.stats.coilWatcherSignals++;
 
       return {
-        type: 'ABSORPTION_SQUEEZE_SIGNAL',
-        strategy: 'LONG',
-        confidence: 'MEDIUM',
-        phenomenon: 'FORCED_ABSORPTION',
-        description: 'Thin liquidity absorbing sell pressure with weak momentum',
-        symbol: marketData.symbol || this.symbol || 'UNKNOWN',
-        exchange: 'BINANCE',
-        currentPrice: marketData.currentPrice,
-        askToBidRatio: marketData.askToBidRatio,
-        totalBidVolume: marketData.totalBidVolume,
-        totalAskVolume: marketData.totalAskVolume,
-        timestamp: marketData.timestamp,
-        momentum,
-        classification: {
-          pressure: squeezeConditions.pressure,
-          liquidity: squeezeConditions.liquidity,
-          momentum: momentum > 0 ? 'WEAK_POSITIVE' : 'WEAK_NEGATIVE',
-          expectedOutcome: 'MEAN_REVERSION_UP'
-        }
-      };
-    }
-
-    // 🔥 PRESSURE SPIKE SIGNAL (Direction Neutral - Volatility Warning)
-    // Requires: HIGH pressure + MID liquidity + WEAK momentum
-    const midLiquidityThreshold = this.liquidityThreshold * 0.5; // 50k
-    const pressureSpikeConditions = {
-      pressure: askToBidRatio >= this.pressureThreshold,           // > 3.0x
-      liquidity: totalBidVolume >= midLiquidityThreshold && totalBidVolume < this.liquidityThreshold, // 50k-100k (MID liquidity)
-      momentum: momentum > -0.2 && momentum < 0.2                 // Weak/neutral momentum range
-    };
-
-    const isPressureSpike = pressureSpikeConditions.pressure && pressureSpikeConditions.liquidity && pressureSpikeConditions.momentum;
-
-    if (isPressureSpike) {
-      console.log(`🔥 PRESSURE SPIKE CONDITIONS MET: Pressure=${askToBidRatio.toFixed(2)}x, Liquidity=${(totalBidVolume/1000).toFixed(1)}k, Momentum=${momentum.toFixed(3)}%`);
-      this.stats.pressureSpikes = (this.stats.pressureSpikes || 0) + 1;
-
-      return {
-        type: 'PRESSURE_SPIKE_SIGNAL',
-        strategy: 'NEUTRAL',
+        type: 'COIL_WATCHER_SIGNAL',
+        strategy: 'ALERT_ONLY',
         confidence: 'HIGH',
-        phenomenon: 'VOLATILITY_BREAKOUT_PENDING',
-        description: 'High pressure in mid-liquidity zone - volatility breakout imminent',
+        regime: 'ACCUMULATION_PHASE',
+        description: 'High-liquidity, low-volatility state detected - Prepare for significant breakout',
         symbol: marketData.symbol || this.symbol || 'UNKNOWN',
         exchange: 'BINANCE',
         currentPrice: marketData.currentPrice,
@@ -243,19 +240,49 @@ class MarketClassifier extends EventEmitter {
         timestamp: marketData.timestamp,
         momentum,
         classification: {
-          pressure: pressureSpikeConditions.pressure,
-          liquidity: pressureSpikeConditions.liquidity,
-          momentum: pressureSpikeConditions.momentum,
-          expectedOutcome: 'VOLATILITY_BREAKOUT'
+          pressure: coilConditions.pressure,
+          liquidity: coilConditions.liquidity,
+          momentum: 'NEUTRAL',
+          expectedOutcome: 'VOLATILITY_BREAKOUT_PENDING',
+          tradingAction: 'ALERT_ONLY'
         }
       };
     }
 
-    // 🚫 NO SIGNAL - Conditions not met for any strategy
-    console.log(`❌ NO SIGNAL: No signal conditions met`);
-    console.log(`   Trifecta: P=${trifectaConditions.pressure ? '✅' : '❌'} L=${trifectaConditions.liquidity ? '✅' : '❌'} M=${trifectaConditions.momentum ? '✅' : '❌'} (need P>3x, L≥100k, M≤-0.3%)`);
-    console.log(`   Squeeze:  P=${squeezeConditions.pressure ? '✅' : '❌'} L=${squeezeConditions.liquidity ? '✅' : '❌'} M=${squeezeConditions.momentum ? '✅' : '❌'} (need P>3x, L<50k, -0.2%<M<0.2%)`);
-    console.log(`   Pressure: P=${pressureSpikeConditions.pressure ? '✅' : '❌'} L=${pressureSpikeConditions.liquidity ? '✅' : '❌'} M=${pressureSpikeConditions.momentum ? '✅' : '❌'} (need P>3x, 50k<L<100k, -0.2%<M<0.2%)`);
+    // 💡 STRATEGY 3: SHAKEOUT_DETECTOR (Informational ALERT - Potential LONG Setup)
+    // Regime: Accumulation via Stop Hunt - Strong negative momentum without sell pressure
+    const shakeoutConditions = this.evaluateShakeoutConditions(askToBidRatio, totalBidVolume, momentum);
+    const isShakeoutSignal = shakeoutConditions.pressure && shakeoutConditions.liquidity && shakeoutConditions.momentum;
+
+    if (isShakeoutSignal) {
+      console.log(`💡 SHAKEOUT_DETECTOR CONDITIONS MET: Pressure=${askToBidRatio.toFixed(2)}x, Liquidity=${(totalBidVolume/1000).toFixed(1)}k, Momentum=${momentum.toFixed(3)}%`);
+      this.stats.shakeoutDetectorSignals++;
+
+      return {
+        type: 'SHAKEOUT_DETECTOR_SIGNAL',
+        strategy: 'ALERT_ONLY',
+        confidence: 'MEDIUM',
+        regime: 'STOP_HUNT_PHASE',
+        description: 'Strong negative momentum with no corresponding sell pressure - Possible stop hunt detected',
+        symbol: marketData.symbol || this.symbol || 'UNKNOWN',
+        exchange: 'BINANCE',
+        currentPrice: marketData.currentPrice,
+        askToBidRatio: marketData.askToBidRatio,
+        totalBidVolume: marketData.totalBidVolume,
+        totalAskVolume: marketData.totalAskVolume,
+        timestamp: marketData.timestamp,
+        momentum,
+        classification: {
+          pressure: shakeoutConditions.pressure,
+          liquidity: shakeoutConditions.liquidity,
+          momentum: 'STRONG_NEGATIVE',
+          expectedOutcome: 'POTENTIAL_REVERSAL_LONG',
+          tradingAction: 'ALERT_ONLY'
+        }
+      };
+    }
+
+    // 🚫 NO REGIME DETECTED - Conditions not met for any of the three strategies
     return null;
   }
 
@@ -293,41 +320,55 @@ class MarketClassifier extends EventEmitter {
   getStats() {
     const uptime = Date.now() - this.stats.startTime;
     const classificationsPerHour = (this.stats.totalClassifications / uptime) * 3600000;
-    
+    const totalSignals = this.stats.cascadeHunterSignals + this.stats.coilWatcherSignals + this.stats.shakeoutDetectorSignals;
+
     return {
       ...this.stats,
       uptime: Math.floor(uptime / 1000),
       classificationsPerHour: classificationsPerHour.toFixed(2),
-      trifectaRate: ((this.stats.trifectaConvictions / this.stats.totalClassifications) * 100).toFixed(2),
-      absorptionRate: ((this.stats.absorptionSqueezes / this.stats.totalClassifications) * 100).toFixed(2),
-      signalRate: (((this.stats.trifectaConvictions + this.stats.absorptionSqueezes) / this.stats.totalClassifications) * 100).toFixed(2)
+      cascadeRate: ((this.stats.cascadeHunterSignals / this.stats.totalClassifications) * 100).toFixed(2),
+      coilRate: ((this.stats.coilWatcherSignals / this.stats.totalClassifications) * 100).toFixed(2),
+      shakeoutRate: ((this.stats.shakeoutDetectorSignals / this.stats.totalClassifications) * 100).toFixed(2),
+      totalSignalRate: ((totalSignals / this.stats.totalClassifications) * 100).toFixed(2)
     };
   }
 
   /**
-   * Reset statistics
+   * Reset v4.1 regime detection statistics
    */
   resetStats() {
     this.stats = {
       totalClassifications: 0,
-      trifectaConvictions: 0,
-      absorptionSqueezes: 0,
+      cascadeHunterSignals: 0,
+      coilWatcherSignals: 0,
+      shakeoutDetectorSignals: 0,
       noSignals: 0,
       startTime: Date.now()
     };
-    console.log(`📊 Classification statistics reset for ${this.symbol}`);
+    console.log(`📊 v4.1 Regime detection statistics reset for ${this.symbol}`);
   }
 
   /**
-   * Update thresholds dynamically
+   * Update v4.1 regime detection thresholds dynamically
    */
   updateThresholds(newThresholds) {
-    if (newThresholds.pressureThreshold) this.pressureThreshold = newThresholds.pressureThreshold;
-    if (newThresholds.liquidityThreshold) this.liquidityThreshold = newThresholds.liquidityThreshold;
-    if (newThresholds.strongMomentumThreshold) this.strongMomentumThreshold = newThresholds.strongMomentumThreshold;
-    if (newThresholds.weakMomentumThreshold) this.weakMomentumThreshold = newThresholds.weakMomentumThreshold;
-    
-    console.log(`⚙️ Thresholds updated for ${this.symbol}:`, newThresholds);
+    // CASCADE_HUNTER thresholds
+    if (newThresholds.cascadePressureThreshold) this.cascadePressureThreshold = newThresholds.cascadePressureThreshold;
+    if (newThresholds.cascadeLiquidityThreshold) this.cascadeLiquidityThreshold = newThresholds.cascadeLiquidityThreshold;
+    if (newThresholds.cascadeMomentumThreshold) this.cascadeMomentumThreshold = newThresholds.cascadeMomentumThreshold;
+
+    // COIL_WATCHER thresholds
+    if (newThresholds.coilPressureThreshold) this.coilPressureThreshold = newThresholds.coilPressureThreshold;
+    if (newThresholds.coilLiquidityThreshold) this.coilLiquidityThreshold = newThresholds.coilLiquidityThreshold;
+    if (newThresholds.coilMomentumMin) this.coilMomentumMin = newThresholds.coilMomentumMin;
+    if (newThresholds.coilMomentumMax) this.coilMomentumMax = newThresholds.coilMomentumMax;
+
+    // SHAKEOUT_DETECTOR thresholds
+    if (newThresholds.shakeoutPressureThreshold) this.shakeoutPressureThreshold = newThresholds.shakeoutPressureThreshold;
+    if (newThresholds.shakeoutLiquidityThreshold) this.shakeoutLiquidityThreshold = newThresholds.shakeoutLiquidityThreshold;
+    if (newThresholds.shakeoutMomentumThreshold) this.shakeoutMomentumThreshold = newThresholds.shakeoutMomentumThreshold;
+
+    console.log(`⚙️ v4.1 Regime thresholds updated for ${this.symbol}:`, newThresholds);
   }
 }
 

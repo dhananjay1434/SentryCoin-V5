@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * SentryCoin v4.0 - Production Trading Engine
+ * SentryCoin v4.1 - Production Market Intelligence Engine
  *
- * A sophisticated quantitative trading system that combines:
- * - Real-time market microstructure analysis
- * - Dual-strategy classification engine (Trifecta + Absorption Squeeze)
+ * A sophisticated market intelligence platform that combines:
+ * - Real-time market regime detection and classification
+ * - Three-strategy intelligence system (CASCADE_HUNTER + Alert-Only modules)
  * - Advanced risk management and position tracking
  * - Comprehensive reporting and monitoring
  *
  * @author SentryCoin Team
- * @version 4.0.0
+ * @version 4.1.0
  * @license MIT
  */
 
@@ -44,9 +44,9 @@ function validateEnvironment() {
  * Main application entry point
  */
 async function main() {
-  console.log('🛡️ SentryCoin v4.0 - Production Trading Engine');
-  console.log('📊 Market Microstructure Classification System');
-  console.log('🎯 Dual-Strategy Trading Engine\n');
+  console.log('🛡️ SentryCoin v4.1 - Production Market Intelligence Engine');
+  console.log('📊 Market Regime Detection System');
+  console.log('🎯 Three-Strategy Intelligence Platform\n');
 
   // Validate configuration first
   if (!validateConfig()) {
@@ -69,8 +69,8 @@ async function main() {
   app.get('/', (req, res) => {
     const status = sentryCoinSystem ? sentryCoinSystem.getSystemStatus() : { status: 'initializing' };
     res.json({
-      service: 'SentryCoin v4.0 Production Trading Engine',
-      version: '4.0.0',
+      service: 'SentryCoin v4.1 Production Market Intelligence Engine',
+      version: '4.1.0',
       status: sentryCoinSystem?.isRunning ? 'running' : 'stopped',
       uptime: status.uptime || 0,
       timestamp: new Date().toISOString(),
@@ -81,8 +81,8 @@ async function main() {
   app.get('/health', (req, res) => {
     res.json({
       status: 'ok',
-      service: 'sentrycoin-v4',
-      version: '4.0.0',
+      service: 'sentrycoin-v4.1',
+      version: '4.1.0',
       timestamp: new Date().toISOString()
     });
   });
@@ -113,7 +113,7 @@ async function main() {
 
   // Start Express server
   app.listen(port, () => {
-    console.log(`🌐 SentryCoin v4.0 API server running on port ${port}`);
+    console.log(`🌐 SentryCoin v4.1 API server running on port ${port}`);
     console.log(`📡 Endpoints:`);
     console.log(`   Status: http://localhost:${port}/status`);
     console.log(`   Performance: http://localhost:${port}/performance`);
@@ -126,12 +126,14 @@ async function main() {
     const started = await sentryCoinSystem.start();
 
     if (started) {
-      console.log('\n🎉 SentryCoin v4.0 is fully operational!');
-      console.log('🧠 Market Classification: ACTIVE');
-      console.log('🎯 Dual-Strategy Trading: MONITORING');
+      console.log('\n🎉 SentryCoin v4.1 is fully operational!');
+      console.log('🧠 Market Regime Detection: ACTIVE');
+      console.log('🎯 CASCADE_HUNTER Trading: MONITORING');
+      console.log('⚠️ COIL_WATCHER Alerts: ACTIVE');
+      console.log('💡 SHAKEOUT_DETECTOR Alerts: ACTIVE');
       console.log('📊 Real-time Analysis: RUNNING');
     } else {
-      console.error('\n❌ Failed to start SentryCoin v4.0');
+      console.error('\n❌ Failed to start SentryCoin v4.1');
       console.log('🌐 API server will continue running for diagnostics');
     }
 

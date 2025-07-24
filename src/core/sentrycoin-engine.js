@@ -1,17 +1,18 @@
 /**
- * SentryCoin v4.0 - Core Trading Engine
- * 
- * Unified trading engine that orchestrates all system components:
- * - Market data processing and classification
- * - Dual-strategy trading execution
+ * SentryCoin v4.1 - Core Market Intelligence Engine
+ *
+ * Unified market intelligence platform that orchestrates all system components:
+ * - Market regime detection and classification
+ * - Three-strategy execution (CASCADE_HUNTER + Alert-Only modules)
  * - Risk management and position tracking
- * - Real-time monitoring and reporting
+ * - Real-time monitoring and comprehensive reporting
  */
 
 import FlashCrashPredictor from './predictor.js';
 import MarketClassifier from './market-classifier.js';
-import TrifectaTrader from '../strategies/trifecta-trader.js';
-import SqueezeTrader from '../strategies/squeeze-trader.js';
+import CascadeHunterTrader from '../strategies/cascade-hunter-trader.js';
+import CoilWatcher from '../strategies/coil-watcher.js';
+import ShakeoutDetector from '../strategies/shakeout-detector.js';
 import DetailedReporter from '../reporting/detailed-reporter.js';
 import cloudStorage from '../services/cloud-storage.js';
 import { getISTTime, formatPrice, formatPriceWithSymbol } from '../utils/index.js';
@@ -21,29 +22,30 @@ class SentryCoinEngine {
     // Use provided config or fallback to environment variables
     this.config = config;
     this.symbol = config?.trading?.symbol || process.env.SYMBOL || 'SPKUSDT';
-    this.version = config?.system?.version || '4.0.0';
-    
-    // Core components
+    this.version = config?.system?.version || '4.1.0';
+
+    // v4.1 Core components
     this.predictor = null;
     this.classifier = null;
-    this.trifectaTrader = null;
-    this.squeezeTrader = null;
+    this.cascadeHunterTrader = null;
+    this.coilWatcher = null;
+    this.shakeoutDetector = null;
     this.reporter = null;
     
     // System state
     this.isRunning = false;
     this.startTime = null;
     
-    // Performance statistics
+    // v4.1 Performance statistics
     this.stats = {
       totalClassifications: 0,
-      trifectaSignals: 0,
-      squeezeSignals: 0,
-      pressureSpikes: 0,
+      cascadeHunterSignals: 0,
+      coilWatcherSignals: 0,
+      shakeoutDetectorSignals: 0,
       systemUptime: 0
     };
-    
-    console.log(`🛡️ SentryCoin v${this.version} - Core Engine`);
+
+    console.log(`🛡️ SentryCoin v${this.version} - Market Intelligence Engine`);
     console.log(`📊 Symbol: ${this.symbol}`);
   }
 
@@ -51,36 +53,37 @@ class SentryCoinEngine {
    * Initialize all system components
    */
   async initialize() {
-    console.log('\n🚀 Initializing SentryCoin v4.0 components...');
-    
+    console.log('\n🚀 Initializing SentryCoin v4.1 components...');
+
     try {
       // Initialize cloud storage
       await cloudStorage.initialize();
       console.log('✅ Cloud storage initialized');
-      
-      // Initialize market classifier with config
-      this.classifier = new MarketClassifier(this.symbol, this.config);
-      console.log('✅ Market classifier initialized');
 
-      // Initialize trading modules with config
-      this.trifectaTrader = new TrifectaTrader(this.symbol, this.config);
-      this.squeezeTrader = new SqueezeTrader(this.symbol, this.config);
-      console.log('✅ Trading modules initialized');
+      // Initialize market regime classifier with config
+      this.classifier = new MarketClassifier(this.symbol, this.config);
+      console.log('✅ Market regime classifier initialized');
+
+      // Initialize v4.1 strategy modules
+      this.cascadeHunterTrader = new CascadeHunterTrader(this.symbol, this.config);
+      this.coilWatcher = new CoilWatcher(this.symbol);
+      this.shakeoutDetector = new ShakeoutDetector(this.symbol);
+      console.log('✅ v4.1 Strategy modules initialized');
 
       // Initialize detailed reporter
       this.reporter = new DetailedReporter(this.symbol);
       console.log('✅ Detailed reporter initialized');
-      
+
       // Set up event listeners
       this.setupEventListeners();
       console.log('✅ Event system configured');
-      
+
       // Initialize the underlying predictor
       this.predictor = new FlashCrashPredictor();
       this.overridePredictorAnalysis();
       console.log('✅ Predictor integration complete');
-      
-      console.log('\n🎉 SentryCoin v4.0 initialization complete!');
+
+      console.log('\n🎉 SentryCoin v4.1 initialization complete!');
       return true;
       
     } catch (error) {
@@ -90,47 +93,50 @@ class SentryCoinEngine {
   }
 
   /**
-   * Set up event listeners between components
+   * Set up v4.1 event listeners between components
    */
   setupEventListeners() {
-    // Connect classifier to trading modules and reporter
+    // Connect classifier to v4.1 strategy modules and reporter
+
+    // CASCADE_HUNTER: Active SHORT trading for Distribution Phase
+    this.classifier.on('CASCADE_HUNTER_SIGNAL', (signal) => {
+      this.stats.cascadeHunterSignals++;
+      this.cascadeHunterTrader.handleCascadeSignal(signal);
+      this.reporter.recordCascadeSignal(signal);
+    });
+
+    // COIL_WATCHER: Alert-only for Accumulation/Manipulation Phase
+    this.classifier.on('COIL_WATCHER_SIGNAL', (signal) => {
+      this.stats.coilWatcherSignals++;
+      this.coilWatcher.handleCoilSignal(signal);
+      this.reporter.recordCoilSignal(signal);
+    });
+
+    // SHAKEOUT_DETECTOR: Alert-only for Stop Hunt Phase
+    this.classifier.on('SHAKEOUT_DETECTOR_SIGNAL', (signal) => {
+      this.stats.shakeoutDetectorSignals++;
+      this.shakeoutDetector.handleShakeoutSignal(signal);
+      this.reporter.recordShakeoutSignal(signal);
+    });
+
+    // Connect CASCADE_HUNTER trader to reporter
+    this.cascadeHunterTrader.on('positionOpened', (position) => {
+      this.reporter.recordTrade(position);
+    });
+
+    this.cascadeHunterTrader.on('positionClosed', (position) => {
+      this.reporter.recordTrade(position);
+    });
+
+    // Legacy event handlers for backward compatibility
     this.classifier.on('TRIFECTA_CONVICTION_SIGNAL', (signal) => {
-      this.stats.trifectaSignals++;
-      this.trifectaTrader.handleTrifectaSignal(signal);
-      this.reporter.recordTrifectaSignal(signal);
+      // Redirect to CASCADE_HUNTER
+      this.stats.cascadeHunterSignals++;
+      this.cascadeHunterTrader.handleTrifectaSignal(signal);
+      this.reporter.recordCascadeSignal(signal);
     });
 
-    this.classifier.on('ABSORPTION_SQUEEZE_SIGNAL', (signal) => {
-      this.stats.squeezeSignals++;
-      this.squeezeTrader.handleSqueezeSignal(signal);
-      this.reporter.recordSqueezeSignal(signal);
-    });
-
-    this.classifier.on('PRESSURE_SPIKE_SIGNAL', (signal) => {
-      this.stats.pressureSpikes++;
-      // Pressure spikes are volatility warnings - no trading action but important alerts
-      this.reporter.recordPressureSpike(signal);
-      console.log(`🔥 PRESSURE SPIKE DETECTED: ${signal.description}`);
-    });
-
-    // Connect trading modules to reporter
-    this.trifectaTrader.on('positionOpened', (position) => {
-      this.reporter.recordTrade(position);
-    });
-
-    this.trifectaTrader.on('positionClosed', (position) => {
-      this.reporter.recordTrade(position);
-    });
-
-    this.squeezeTrader.on('positionOpened', (position) => {
-      this.reporter.recordTrade(position);
-    });
-
-    this.squeezeTrader.on('positionClosed', (position) => {
-      this.reporter.recordTrade(position);
-    });
-
-    console.log('🔗 Event listeners configured');
+    console.log('🔗 v4.1 Event listeners configured');
   }
 
   /**
@@ -260,7 +266,7 @@ class SentryCoinEngine {
       this.isRunning = true;
       this.startTime = Date.now();
       
-      console.log('🎉 SentryCoin v4.0 is fully operational!');
+      console.log('🎉 SentryCoin v4.1 is fully operational!');
       return true;
       
     } catch (error) {
@@ -277,7 +283,7 @@ class SentryCoinEngine {
       return;
     }
 
-    console.log('🛑 Shutting down SentryCoin v4.0...');
+    console.log('🛑 Shutting down SentryCoin v4.1...');
     
     try {
       if (this.predictor) {
@@ -298,11 +304,11 @@ class SentryCoinEngine {
   }
 
   /**
-   * Get comprehensive system status
+   * Get comprehensive v4.1 system status
    */
   getSystemStatus() {
     const uptime = this.startTime ? Date.now() - this.startTime : 0;
-    
+
     return {
       version: this.version,
       symbol: this.symbol,
@@ -310,8 +316,9 @@ class SentryCoinEngine {
       uptime: Math.floor(uptime / 1000),
       stats: this.stats,
       classifier: this.classifier?.getStats(),
-      trifectaTrader: this.trifectaTrader?.getStats(),
-      squeezeTrader: this.squeezeTrader?.getStats(),
+      cascadeHunterTrader: this.cascadeHunterTrader?.getStats(),
+      coilWatcher: this.coilWatcher?.getStats(),
+      shakeoutDetector: this.shakeoutDetector?.getStats(),
       predictor: this.predictor?.stats,
       timestamp: new Date().toISOString()
     };

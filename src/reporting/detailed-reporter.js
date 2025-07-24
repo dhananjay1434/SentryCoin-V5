@@ -22,13 +22,13 @@ class DetailedReporter {
         id: this.reportId,
         symbol: this.symbol,
         startTime: new Date().toISOString(),
-        version: '4.0',
-        algorithm: 'Dual-Strategy Classification'
+        version: '4.1',
+        algorithm: 'Three-Regime Market Intelligence'
       },
       classifications: [],
-      trifectaSignals: [],
-      squeezeSignals: [],
-      pressureSpikes: [],
+      cascadeSignals: [],
+      coilSignals: [],
+      shakeoutSignals: [],
       trades: [],
       performance: {
         hourly: [],
@@ -107,9 +107,9 @@ class DetailedReporter {
   }
 
   /**
-   * Record a Trifecta signal
+   * Record a CASCADE_HUNTER signal (v4.1)
    */
-  recordTrifectaSignal(signal) {
+  recordCascadeSignal(signal) {
     const record = {
       id: signal.id || generateSignalId(),
       timestamp: new Date().toISOString(),
@@ -120,50 +120,21 @@ class DetailedReporter {
       momentum: signal.momentum,
       confidence: signal.confidence,
       strategy: 'SHORT',
-      type: 'TRIFECTA_CONVICTION',
+      type: 'CASCADE_HUNTER',
+      regime: signal.regime,
       conditions: signal.classification
     };
-    
-    this.reportData.trifectaSignals.push(record);
-    this.saveToCloud(`trifecta_signal_${record.id}`, record);
-    
-    console.log(`📊 Trifecta signal recorded: ${record.id}`);
+
+    this.reportData.cascadeSignals.push(record);
+    this.saveToCloud(`cascade_signal_${record.id}`, record);
+
+    console.log(`📊 CASCADE_HUNTER signal recorded: ${record.id}`);
   }
 
   /**
-   * Record a Pressure Spike signal
+   * Record a COIL_WATCHER signal (v4.1)
    */
-  recordPressureSpike(signal) {
-    const record = {
-      id: signal.id || generateSignalId(),
-      timestamp: new Date().toISOString(),
-      istTime: getISTTime(),
-      symbol: signal.symbol,
-      type: 'PRESSURE_SPIKE',
-      strategy: 'NEUTRAL',
-      confidence: signal.confidence,
-      phenomenon: signal.phenomenon,
-      description: signal.description,
-      exchange: signal.exchange,
-      currentPrice: signal.currentPrice,
-      askToBidRatio: signal.askToBidRatio,
-      totalBidVolume: signal.totalBidVolume,
-      totalAskVolume: signal.totalAskVolume,
-      momentum: signal.momentum,
-      classification: signal.classification
-    };
-
-    this.reportData.pressureSpikes.push(record);
-    this.saveToCloud(`${signal.symbol}_pressure_spike_${Date.now()}`, record);
-
-    console.log(`🔥 PRESSURE SPIKE RECORDED: ${signal.symbol} at $${signal.currentPrice.toFixed(6)}`);
-    console.log(`   📊 Pressure: ${signal.askToBidRatio.toFixed(2)}x | Liquidity: ${(signal.totalBidVolume/1000).toFixed(1)}k | Momentum: ${signal.momentum.toFixed(3)}%`);
-  }
-
-  /**
-   * Record a Squeeze signal
-   */
-  recordSqueezeSignal(signal) {
+  recordCoilSignal(signal) {
     const record = {
       id: signal.id || generateSignalId(),
       timestamp: new Date().toISOString(),
@@ -173,16 +144,60 @@ class DetailedReporter {
       ratio: signal.askToBidRatio,
       momentum: signal.momentum,
       confidence: signal.confidence,
-      strategy: 'LONG',
-      type: 'ABSORPTION_SQUEEZE',
+      strategy: 'ALERT_ONLY',
+      type: 'COIL_WATCHER',
+      regime: signal.regime,
       conditions: signal.classification
     };
-    
-    this.reportData.squeezeSignals.push(record);
-    this.saveToCloud(`squeeze_signal_${record.id}`, record);
-    
-    console.log(`📊 Squeeze signal recorded: ${record.id}`);
+
+    this.reportData.coilSignals.push(record);
+    this.saveToCloud(`coil_signal_${record.id}`, record);
+
+    console.log(`📊 COIL_WATCHER signal recorded: ${record.id}`);
   }
+
+  /**
+   * Record a SHAKEOUT_DETECTOR signal (v4.1)
+   */
+  recordShakeoutSignal(signal) {
+    const record = {
+      id: signal.id || generateSignalId(),
+      timestamp: new Date().toISOString(),
+      istTime: getISTTime(),
+      symbol: signal.symbol,
+      price: signal.currentPrice,
+      ratio: signal.askToBidRatio,
+      momentum: signal.momentum,
+      confidence: signal.confidence,
+      strategy: 'ALERT_ONLY',
+      type: 'SHAKEOUT_DETECTOR',
+      regime: signal.regime,
+      conditions: signal.classification
+    };
+
+    this.reportData.shakeoutSignals.push(record);
+    this.saveToCloud(`shakeout_signal_${record.id}`, record);
+
+    console.log(`📊 SHAKEOUT_DETECTOR signal recorded: ${record.id}`);
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   */
+  recordTrifectaSignal(signal) {
+    // Redirect to CASCADE_HUNTER
+    this.recordCascadeSignal(signal);
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   */
+  recordSqueezeSignal(signal) {
+    // For now, just log - squeeze strategy is deprecated in v4.1
+    console.log(`📊 Legacy squeeze signal ignored in v4.1: ${signal.symbol}`);
+  }
+
+
 
   /**
    * Record a trade execution
@@ -261,8 +276,9 @@ class DetailedReporter {
       startTime: hourAgo.toISOString(),
       endTime: now.toISOString(),
       classifications: this.getDataInPeriod(this.reportData.classifications, hourAgo, now),
-      trifectaSignals: this.getDataInPeriod(this.reportData.trifectaSignals, hourAgo, now),
-      squeezeSignals: this.getDataInPeriod(this.reportData.squeezeSignals, hourAgo, now),
+      cascadeSignals: this.getDataInPeriod(this.reportData.cascadeSignals, hourAgo, now),
+      coilSignals: this.getDataInPeriod(this.reportData.coilSignals, hourAgo, now),
+      shakeoutSignals: this.getDataInPeriod(this.reportData.shakeoutSignals, hourAgo, now),
       trades: this.getDataInPeriod(this.reportData.trades, hourAgo, now),
       performance: this.calculatePeriodPerformance(hourAgo, now)
     };
@@ -290,8 +306,9 @@ class DetailedReporter {
       startTime: dayAgo.toISOString(),
       endTime: now.toISOString(),
       classifications: this.getDataInPeriod(this.reportData.classifications, dayAgo, now),
-      trifectaSignals: this.getDataInPeriod(this.reportData.trifectaSignals, dayAgo, now),
-      squeezeSignals: this.getDataInPeriod(this.reportData.squeezeSignals, dayAgo, now),
+      cascadeSignals: this.getDataInPeriod(this.reportData.cascadeSignals, dayAgo, now),
+      coilSignals: this.getDataInPeriod(this.reportData.coilSignals, dayAgo, now),
+      shakeoutSignals: this.getDataInPeriod(this.reportData.shakeoutSignals, dayAgo, now),
       trades: this.getDataInPeriod(this.reportData.trades, dayAgo, now),
       performance: this.calculatePeriodPerformance(dayAgo, now),
       summary: this.generateDailySummary(dayAgo, now)
@@ -319,8 +336,9 @@ class DetailedReporter {
       sessionDuration: sessionDuration,
       summary: {
         totalClassifications: this.reportData.classifications.length,
-        totalTrifectaSignals: this.reportData.trifectaSignals.length,
-        totalSqueezeSignals: this.reportData.squeezeSignals.length,
+        totalCascadeSignals: this.reportData.cascadeSignals.length,
+        totalCoilSignals: this.reportData.coilSignals.length,
+        totalShakeoutSignals: this.reportData.shakeoutSignals.length,
         totalTrades: this.reportData.trades.length,
         totalErrors: this.reportData.errors.length,
         uptime: Math.floor(sessionDuration / 1000),
@@ -416,8 +434,9 @@ class DetailedReporter {
    */
   generateDailySummary(startTime, endTime) {
     const classifications = this.getDataInPeriod(this.reportData.classifications, startTime, endTime);
-    const signals = [...this.getDataInPeriod(this.reportData.trifectaSignals, startTime, endTime),
-                     ...this.getDataInPeriod(this.reportData.squeezeSignals, startTime, endTime)];
+    const signals = [...this.getDataInPeriod(this.reportData.cascadeSignals, startTime, endTime),
+                     ...this.getDataInPeriod(this.reportData.coilSignals, startTime, endTime),
+                     ...this.getDataInPeriod(this.reportData.shakeoutSignals, startTime, endTime)];
     
     return {
       classificationsPerHour: (classifications.length / 24).toFixed(1),
@@ -510,8 +529,9 @@ class DetailedReporter {
       uptime: Math.floor((Date.now() - this.startTime) / 1000),
       dataPoints: {
         classifications: this.reportData.classifications.length,
-        trifectaSignals: this.reportData.trifectaSignals.length,
-        squeezeSignals: this.reportData.squeezeSignals.length,
+        cascadeSignals: this.reportData.cascadeSignals.length,
+        coilSignals: this.reportData.coilSignals.length,
+        shakeoutSignals: this.reportData.shakeoutSignals.length,
         trades: this.reportData.trades.length,
         errors: this.reportData.errors.length
       },

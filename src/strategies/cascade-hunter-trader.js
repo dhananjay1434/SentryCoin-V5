@@ -1,10 +1,11 @@
 /**
- * Trifecta Conviction Trader - High-Precision Short Strategy
- * 
- * Executes the premium "A+" signals identified by the Market Classifier.
- * These are the rare, high-value alerts with proven track record of accuracy.
- * 
- * Strategy: SHORT positions on TRIFECTA_CONVICTION_SIGNAL events
+ * CASCADE_HUNTER Trader - v4.1 Distribution Phase Detection
+ *
+ * Executes live SHORT trades on validated CASCADE_HUNTER signals from the
+ * Market Regime Detection Engine. These signals identify the Distribution Phase
+ * of pump-and-dump cycles with high precision.
+ *
+ * Strategy: SHORT positions on CASCADE_HUNTER_SIGNAL events
  * Expected: High precision, low frequency, significant alpha generation
  */
 
@@ -13,19 +14,19 @@ import { getISTTime, generateSignalId, formatPrice, formatPriceWithSymbol } from
 import cloudStorage from '../services/cloud-storage.js';
 import FlashCrashAlerter from '../services/alerter.js';
 
-class TrifectaTrader extends EventEmitter {
+class CascadeHunterTrader extends EventEmitter {
   constructor(symbol) {
     super();
-    
+
     this.symbol = symbol;
     this.alerter = new FlashCrashAlerter();
-    
-    // Trading configuration
-    this.enabled = process.env.TRIFECTA_TRADING_ENABLED === 'true';
+
+    // v4.1 CASCADE_HUNTER Trading configuration
+    this.enabled = process.env.CASCADE_TRADING_ENABLED === 'true';
     this.paperTrading = process.env.PAPER_TRADING !== 'false'; // Default to paper trading
-    this.maxPositionSize = parseFloat(process.env.TRIFECTA_MAX_POSITION || '1000');
-    this.stopLossPercent = parseFloat(process.env.TRIFECTA_STOP_LOSS || '2.0');
-    this.takeProfitPercent = parseFloat(process.env.TRIFECTA_TAKE_PROFIT || '5.0');
+    this.maxPositionSize = parseFloat(process.env.CASCADE_MAX_POSITION || '1000');
+    this.stopLossPercent = parseFloat(process.env.CASCADE_STOP_LOSS || '2.0');
+    this.takeProfitPercent = parseFloat(process.env.CASCADE_TAKE_PROFIT || '5.0');
     
     // Position tracking
     this.activePositions = new Map();
@@ -43,7 +44,7 @@ class TrifectaTrader extends EventEmitter {
       startTime: Date.now()
     };
     
-    console.log(`🎯 Trifecta Conviction Trader initialized for ${symbol}`);
+    console.log(`🎯 CASCADE_HUNTER Trader v4.1 initialized for ${symbol}`);
     console.log(`📊 Mode: ${this.paperTrading ? 'PAPER TRADING' : 'LIVE TRADING'}`);
     console.log(`💰 Max Position: $${this.maxPositionSize}`);
     console.log(`🛑 Stop Loss: ${this.stopLossPercent}%`);
@@ -51,28 +52,37 @@ class TrifectaTrader extends EventEmitter {
   }
 
   /**
-   * Handle incoming Trifecta Conviction signals
+   * Handle incoming CASCADE_HUNTER signals (v4.1)
    */
-  async handleTrifectaSignal(signal) {
+  async handleCascadeSignal(signal) {
     this.stats.signalsReceived++;
-    
+
     const istTime = getISTTime();
-    console.log(`🚨 TRIFECTA CONVICTION SIGNAL RECEIVED [${istTime}]`);
+    console.log(`🚨 CASCADE_HUNTER SIGNAL RECEIVED [${istTime}]`);
     console.log(`   📊 ${signal.symbol}: ${formatPriceWithSymbol(signal.currentPrice)}`);
     console.log(`   📈 Momentum: ${signal.momentum.toFixed(3)}% (Strong Negative)`);
     console.log(`   ⚡ Ratio: ${signal.askToBidRatio.toFixed(2)}x | Liquidity: ${signal.totalBidVolume.toFixed(0)}`);
-    
+    console.log(`   🎯 Regime: ${signal.regime} | Confidence: ${signal.confidence}`);
+
     if (!this.enabled) {
       console.log(`⏸️ Trading disabled - signal logged only`);
       await this.logSignal(signal);
       return;
     }
 
-    // Execute the short strategy
+    // Execute the short strategy for Distribution Phase
     await this.executeShortStrategy(signal);
-    
+
     // Send premium alert to subscribers
     await this.sendPremiumAlert(signal);
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   */
+  async handleTrifectaSignal(signal) {
+    // Redirect to new CASCADE_HUNTER handler
+    await this.handleCascadeSignal(signal);
   }
 
   /**
@@ -237,31 +247,32 @@ class TrifectaTrader extends EventEmitter {
   }
 
   /**
-   * Send premium alert to subscribers
+   * Send premium CASCADE_HUNTER alert to subscribers
    */
   async sendPremiumAlert(signal) {
     const alertData = {
       ...signal,
-      alertType: 'TRIFECTA_CONVICTION',
+      alertType: 'CASCADE_HUNTER',
       premiumSignal: true,
-      tradingAction: 'SHORT_RECOMMENDED',
-      confidence: 'VERY_HIGH'
+      tradingAction: 'SHORT_EXECUTED',
+      confidence: 'VERY_HIGH',
+      regime: signal.regime || 'DISTRIBUTION_PHASE'
     };
 
     try {
       await this.alerter.triggerFlashCrashAlert(alertData);
-      console.log(`📱 Premium Trifecta alert sent`);
+      console.log(`📱 Premium CASCADE_HUNTER alert sent`);
     } catch (error) {
       console.error(`❌ Failed to send premium alert: ${error.message}`);
     }
   }
 
   /**
-   * Log signal for analysis
+   * Log CASCADE_HUNTER signal for analysis
    */
   async logSignal(signal) {
     try {
-      const key = `trifecta_signal_${Date.now()}`;
+      const key = `cascade_hunter_signal_${Date.now()}`;
       await cloudStorage.save(key, signal);
     } catch (error) {
       console.warn(`⚠️ Failed to log signal: ${error.message}`);
@@ -320,7 +331,7 @@ class TrifectaTrader extends EventEmitter {
 
       if (exitReason) {
         await this.closePosition(position, exitReason, currentPrice);
-        console.log(`🎯 Trifecta position closed: ${exitReason} at ${formatPriceWithSymbol(currentPrice)}`);
+        console.log(`🎯 CASCADE_HUNTER position closed: ${exitReason} at ${formatPriceWithSymbol(currentPrice)}`);
       }
     } catch (error) {
       console.error(`❌ Error checking exit conditions for position ${position.id}:`, error.message);
@@ -347,4 +358,4 @@ class TrifectaTrader extends EventEmitter {
   }
 }
 
-export default TrifectaTrader;
+export default CascadeHunterTrader;
