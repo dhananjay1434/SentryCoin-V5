@@ -252,17 +252,23 @@ class SignalValidator {
         byRiskLevel: this.getAccuracyByRiskLevel(),
         averageMaxDrop: this.getAverageMaxDrop(),
         recentPerformance: this.getRecentPerformance()
+      },
+      downloadInfo: {
+        filename: `validation-report-${this.symbol}.json`,
+        downloadUrl: `/download/validation-report-${this.symbol}.json`,
+        size: JSON.stringify(this.validationResults).length
       }
     };
 
     // Save report
     fs.writeFileSync(`validation-report-${this.symbol}.json`, JSON.stringify(report, null, 2));
-    
+
     console.log(`📊 Validation Report Generated:`);
     console.log(`   Total Signals: ${totalSignals}`);
     console.log(`   Correct Predictions: ${correctPredictions}`);
     console.log(`   Accuracy: ${accuracy.toFixed(2)}%`);
     console.log(`   Average Max Drop: ${report.breakdown.averageMaxDrop.toFixed(2)}%`);
+    console.log(`   📁 Download: ${report.downloadInfo.downloadUrl}`);
 
     return report;
   }

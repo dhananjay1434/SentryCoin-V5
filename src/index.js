@@ -82,9 +82,59 @@ async function main() {
       endpoints: {
         health: '/health',
         status: '/status',
-        home: '/'
+        home: '/',
+        reports: '/reports',
+        download: '/download'
       }
     });
+  });
+
+  // Reports listing endpoint
+  app.get('/reports', async (req, res) => {
+    try {
+      const fs = await import('fs/promises');
+      const files = await fs.readdir('.');
+
+      const reportFiles = files.filter(file =>
+        file.includes('validation-report') ||
+        file.includes('signal-validation') ||
+        file.includes('backtest-results') ||
+        file.includes('trifecta-backtest')
+      );
+
+      res.json({
+        availableReports: reportFiles,
+        totalFiles: reportFiles.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Download specific report file
+  app.get('/download/:filename', async (req, res) => {
+    try {
+      const fs = await import('fs/promises');
+      const filename = req.params.filename;
+
+      // Security check - only allow specific file patterns
+      if (!filename.match(/^(validation-report|signal-validation|backtest-results|trifecta-backtest).*\.(json|txt)$/)) {
+        return res.status(400).json({ error: 'Invalid file type' });
+      }
+
+      const fileContent = await fs.readFile(filename, 'utf8');
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(fileContent);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        res.status(404).json({ error: 'File not found' });
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
   });
 
   // Start Express server

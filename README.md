@@ -67,7 +67,7 @@ npm start
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `SYMBOL` | SOLUSDT | Trading pair to monitor |
+| `SYMBOL` | SPKUSDT | Trading pair to monitor |
 | `DANGER_RATIO` | 2.5 | Ask/bid ratio threshold for alerts |
 | `ORDER_BOOK_DEPTH` | 50 | Number of order book levels to analyze |
 | `COOLDOWN_MINUTES` | 5 | Minutes between alerts |
@@ -88,9 +88,9 @@ DANGER_RATIO=4.0
 COOLDOWN_MINUTES=10
 ```
 
-**For Altcoins (balanced):**
+**For SPK/USDT (recommended):**
 ```env
-SYMBOL=SOLUSDT
+SYMBOL=SPKUSDT
 DANGER_RATIO=2.5
 COOLDOWN_MINUTES=5
 ```
@@ -149,8 +149,8 @@ SYMBOL=DOGEUSDT
 DANGER_RATIO=1.8
 COOLDOWN_MINUTES=1
 
-# For realistic testing
-SYMBOL=SOLUSDT
+# For realistic testing with SPK/USDT
+SYMBOL=SPKUSDT
 DANGER_RATIO=2.5
 COOLDOWN_MINUTES=5
 ```
@@ -160,8 +160,8 @@ COOLDOWN_MINUTES=5
 ```
 🚨 SENTRYCOIN FLASH CRASH WARNING 🚨
 
-📊 Asset: SOLUSDT
-💰 Current Price: $125.50
+📊 Asset: SPKUSDT
+💰 Current Price: $0.162000
 ⚠️ Risk Level: 🔴 EXTREME
 
 📈 Order Book Analysis:
@@ -174,7 +174,7 @@ COOLDOWN_MINUTES=5
 🛡️ Action: Thin buy-side support - monitor closely
 
 ⏰ Time: 2024-01-15T14:30:25.123Z
-🤖 Engine: SentryCoin Predictor v1.0
+🤖 Engine: SentryCoin Predictor v4.0
 ```
 
 ## 🚀 Deploy to Render.com

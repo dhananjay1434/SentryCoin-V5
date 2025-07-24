@@ -65,3 +65,7 @@ temp/
 # Application specific
 data/
 backups/
+
+# Azure/Kudu deployment files
+LogFiles/
+deployments/

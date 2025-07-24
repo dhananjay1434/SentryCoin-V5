@@ -9,6 +9,7 @@ dotenv.config();
 
 class FlashCrashPredictor {
   constructor() {
+    // Using SPK/USDT as requested
     this.symbol = process.env.SYMBOL || 'SPKUSDT';
     this.dangerRatio = parseFloatEnv('DANGER_RATIO', 3.0);
     this.orderBookDepth = parseIntEnv('ORDER_BOOK_DEPTH', 50);
@@ -325,13 +326,15 @@ class FlashCrashPredictor {
       'BTCUSDT': 43000,
       'ETHUSDT': 2500,
       'SOLUSDT': 100,
-      'SPKUSDT': 0.162,
+      'SPKUSDT': 0.162,  // SPK/USDT price
       'ADAUSDT': 0.5,
       'DOGEUSDT': 0.08,
-      'BNBUSDT': 300
+      'BNBUSDT': 300,
+      'AVAXUSDT': 25,
+      'MATICUSDT': 0.8
     };
 
-    return prices[this.symbol] || 100;
+    return prices[this.symbol] || 0.162; // Default to SPK price
   }
 
   /**
