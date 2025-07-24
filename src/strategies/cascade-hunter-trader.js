@@ -10,6 +10,8 @@
  */
 
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import path from 'path';
 import { getISTTime, generateSignalId, formatPrice, formatPriceWithSymbol } from '../utils/index.js';
 import cloudStorage from '../services/cloud-storage.js';
 import FlashCrashAlerter from '../services/alerter.js';
@@ -415,7 +417,6 @@ class CascadeHunterTrader extends EventEmitter {
    */
   loadPersistedStats() {
     try {
-      const fs = require('fs');
       if (fs.existsSync(this.statsFile)) {
         const data = JSON.parse(fs.readFileSync(this.statsFile, 'utf8'));
         data.sessionStartTime = Date.now(); // Reset session start time
@@ -433,9 +434,6 @@ class CascadeHunterTrader extends EventEmitter {
    */
   savePersistedStats() {
     try {
-      const fs = require('fs');
-      const path = require('path');
-
       // Ensure data directory exists
       const dataDir = path.dirname(this.statsFile);
       if (!fs.existsSync(dataDir)) {
