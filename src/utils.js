@@ -1,7 +1,8 @@
 /**
- * SentryCoin Utility Functions
- * 
- * Common utility functions used across the application to avoid code duplication
+ * SentryCoin v4.0 - Utility Functions
+ *
+ * Common utility functions and constants used across the application
+ * @version 4.0.0
  */
 
 /**

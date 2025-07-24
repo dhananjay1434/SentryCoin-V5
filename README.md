@@ -1,127 +1,119 @@
-# 🛡️ SentryCoin Flash Crash Predictor
+# 🛡️ SentryCoin v4.0 - Production Trading Engine
 
-**A sophisticated quantitative engine that analyzes real-time cryptocurrency market microstructure data to predict and alert on potential flash crashes.**
+A sophisticated quantitative trading system that combines real-time market microstructure analysis with dual-strategy classification for cryptocurrency markets.
 
-## 🎯 Core Theory
+## 🎯 **Core Features**
 
-### The Flash Crash Heuristic
+### **Market Intelligence**
+- **Real-time Order Book Analysis**: Advanced bid/ask imbalance detection
+- **Dual-Strategy Classification**: Trifecta Conviction (Short) + Absorption Squeeze (Long)
+- **Market Microstructure Engine**: Proprietary liquidity crisis detection
+- **Advanced Risk Management**: Position tracking with dynamic stop-loss/take-profit
 
-Flash crashes are often preceded by **liquidity crises** in the order book. When the volume of sell orders (asks) dramatically outweighs the volume of buy orders (bids), even small market sell orders can cause the price to plummet through thin buy-side support.
+### **Trading Capabilities**
+- **Trifecta Conviction Strategy**: High-precision short signals for flash crash prediction
+- **Absorption Squeeze Strategy**: Contrarian long positions on forced absorption patterns
+- **Paper Trading Mode**: Safe testing environment (default enabled)
+- **Live Trading Support**: Production-ready execution engine
 
-**Key Insight**: By monitoring the ask/bid volume ratio in real-time, we can detect these imbalances before they trigger cascading liquidations.
+### **Monitoring & Analytics**
+- **Real-time Dashboard**: Web-based monitoring and control interface
+- **Comprehensive Reporting**: Session, hourly, and daily performance reports
+- **Telegram Alerts**: Instant notifications for premium signals
+- **Performance Tracking**: Detailed P&L and win-rate analytics
 
-### Algorithm Overview
+## 🚀 **Quick Start**
 
-```
-1. Connect to Binance WebSocket depth stream
-2. Maintain real-time order book (top 50 levels)
-3. Calculate: askToBidRatio = totalAskVolume / totalBidVolume
-4. Alert when: askToBidRatio > DANGER_RATIO (default: 3.0x)
-5. Implement cooldown to prevent spam
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
+### **Prerequisites**
 - Node.js 18+
-- Telegram account
-- Telegram bot token
+- Telegram Bot Token & Chat ID
+- Environment variables configured
 
-### 1. Setup Telegram Bot
-
-1. Message [@BotFather](https://t.me/BotFather) on Telegram
-2. Create a new bot: `/newbot`
-3. Save your bot token
-4. Get your chat ID by messaging [@userinfobot](https://t.me/userinfobot)
-
-### 2. Installation
-
+### **Installation**
 ```bash
-git clone https://github.com/dhananjay1434/SentryCoin.git
-cd SentryCoin
+git clone <repository-url>
+cd PumpAlarm
 npm install
 ```
 
-### 3. Configuration
-
-```bash
-cp .env.example .env
-# Edit .env with your Telegram credentials
-```
-
-Required environment variables:
+### **Configuration**
+Create a `.env` file with your settings:
 ```env
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-TELEGRAM_CHAT_ID=your_chat_id_here
-```
+# Required
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
 
-### 4. Run Locally
-
-```bash
-npm start
-```
-
-## 📊 Configuration Parameters
-
-### Core Settings
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `SYMBOL` | SPKUSDT | Trading pair to monitor |
-| `DANGER_RATIO` | 2.5 | Ask/bid ratio threshold for alerts |
-| `ORDER_BOOK_DEPTH` | 50 | Number of order book levels to analyze |
-| `COOLDOWN_MINUTES` | 5 | Minutes between alerts |
-
-### Tuning the Algorithm
-
-**For Testing (more alerts):**
-```env
-SYMBOL=DOGEUSDT
-DANGER_RATIO=2.0
-COOLDOWN_MINUTES=2
-```
-
-**For Bitcoin (conservative):**
-```env
-SYMBOL=BTCUSDT
-DANGER_RATIO=4.0
-COOLDOWN_MINUTES=10
-```
-
-**For SPK/USDT (recommended):**
-```env
+# Trading Configuration
 SYMBOL=SPKUSDT
-DANGER_RATIO=2.5
-COOLDOWN_MINUTES=5
+PAPER_TRADING=true
+TRIFECTA_TRADING_ENABLED=true
+SQUEEZE_TRADING_ENABLED=true
+
+# Risk Management
+TRIFECTA_MAX_POSITION=1000
+TRIFECTA_STOP_LOSS=2.0
+TRIFECTA_TAKE_PROFIT=5.0
+SQUEEZE_MAX_POSITION=500
+SQUEEZE_STOP_LOSS=1.5
+SQUEEZE_TAKE_PROFIT=3.0
+
+# Classification Thresholds
+PRESSURE_THRESHOLD=3.0
+LIQUIDITY_THRESHOLD=100000
+STRONG_MOMENTUM_THRESHOLD=-0.3
+WEAK_MOMENTUM_THRESHOLD=-0.1
 ```
 
-## 🔧 How It Works
+### **Running the System**
+```bash
+# Start production engine
+npm start
 
-### 1. Order Book Initialization
-- Fetches current order book snapshot via REST API
-- Establishes baseline state with top 50 bid/ask levels
+# Development mode with auto-reload
+npm run dev
 
-### 2. Real-Time Processing
-- Connects to Binance WebSocket depth stream
-- Processes order book updates in real-time
-- Maintains synchronized local order book state
+# Run backtesting
+npm run backtest
 
-### 3. Flash Crash Detection
-```javascript
-// Core algorithm
-const totalBidVolume = sumTopBids(50);
-const totalAskVolume = sumTopAsks(50);
-const askToBidRatio = totalAskVolume / totalBidVolume;
-
-if (askToBidRatio > DANGER_RATIO && !isOnCooldown) {
-    triggerFlashCrashAlert();
-}
+# Test connectivity
+npm run connectivity
 ```
 
-### 4. Alert Delivery
-- Sends formatted alert to Telegram
-- Includes risk level, volumes, and actionable insights
-- Implements cooldown to prevent spam
+## 📊 **System Architecture**
+
+### **Core Components**
+```
+src/
+├── core/                    # Core trading engine
+│   ├── sentrycoin-engine.js # Main orchestrator
+│   ├── predictor.js         # Order book processor
+│   └── market-classifier.js # Signal classification
+├── strategies/              # Trading strategies
+│   ├── trifecta-trader.js   # Short strategy (flash crash)
+│   └── squeeze-trader.js    # Long strategy (absorption)
+├── services/               # External services
+│   ├── alerter.js          # Telegram notifications
+│   ├── cloud-storage.js    # Data persistence
+│   └── signal-validator.js # Signal validation
+├── reporting/              # Analytics & reporting
+│   └── detailed-reporter.js
+└── utils/                  # Shared utilities
+    └── index.js
+```
+
+### **Trading Strategies**
+
+#### **1. Trifecta Conviction (Short Strategy)**
+- **Target**: Flash crash prediction with high precision
+- **Signals**: Strong negative momentum + high pressure + thin liquidity
+- **Execution**: Short positions with 2% stop-loss, 5% take-profit
+- **Frequency**: Low (premium signals only)
+
+#### **2. Absorption Squeeze (Long Strategy)**
+- **Target**: Mean reversion on forced absorption patterns
+- **Signals**: Weak/positive momentum + high pressure + thin liquidity
+- **Execution**: Long positions with 1.5% stop-loss, 3% take-profit
+- **Frequency**: Medium (more frequent opportunities)
 
 ## ## 🧪 Best Cryptocurrencies for Testing
 
