@@ -22,7 +22,7 @@ class SentryCoinEngine {
     // Use provided config or fallback to environment variables
     this.config = config;
     this.symbol = config?.trading?.symbol || process.env.SYMBOL || 'SPKUSDT';
-    this.version = config?.system?.version || '4.1.0';
+    this.version = config?.system?.version || '4.1.1';
 
     // v4.1 Core components
     this.predictor = null;
@@ -101,6 +101,7 @@ class SentryCoinEngine {
     // CASCADE_HUNTER: Active SHORT trading for Distribution Phase
     this.classifier.on('CASCADE_HUNTER_SIGNAL', (signal) => {
       this.stats.cascadeHunterSignals++;
+      this.stats.totalClassifications = this.classifier.stats.totalClassifications;
       this.cascadeHunterTrader.handleCascadeSignal(signal);
       this.reporter.recordCascadeSignal(signal);
     });
@@ -108,6 +109,7 @@ class SentryCoinEngine {
     // COIL_WATCHER: Alert-only for Accumulation/Manipulation Phase
     this.classifier.on('COIL_WATCHER_SIGNAL', (signal) => {
       this.stats.coilWatcherSignals++;
+      this.stats.totalClassifications = this.classifier.stats.totalClassifications;
       this.coilWatcher.handleCoilSignal(signal);
       this.reporter.recordCoilSignal(signal);
     });
@@ -115,6 +117,7 @@ class SentryCoinEngine {
     // SHAKEOUT_DETECTOR: Alert-only for Stop Hunt Phase
     this.classifier.on('SHAKEOUT_DETECTOR_SIGNAL', (signal) => {
       this.stats.shakeoutDetectorSignals++;
+      this.stats.totalClassifications = this.classifier.stats.totalClassifications;
       this.shakeoutDetector.handleShakeoutSignal(signal);
       this.reporter.recordShakeoutSignal(signal);
     });

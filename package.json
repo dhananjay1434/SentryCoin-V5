@@ -1,6 +1,6 @@
 {
   "name": "sentrycoin-trading-engine",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "SentryCoin v4.1 - Production Market Intelligence Engine with Three-Regime Detection",
   "main": "src/index.js",
   "type": "module",
