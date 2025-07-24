@@ -193,8 +193,8 @@ class SentryCoinEngine {
         });
       }
 
-      // Update positions
-      if (this.trifectaTrader && this.squeezeTrader) {
+      // Update positions (v4.1)
+      if (this.cascadeHunterTrader) {
         this.updateAllPositions(currentPrice);
       }
       
@@ -206,7 +206,7 @@ class SentryCoinEngine {
   }
 
   /**
-   * Update all active positions with current price
+   * Update all active positions with current price (v4.1)
    * CRITICAL: Implements fault tolerance to prevent system crashes
    */
   updateAllPositions(currentPrice) {
@@ -215,8 +215,7 @@ class SentryCoinEngine {
     }
 
     const activeTraders = [
-      { name: 'TrifectaTrader', instance: this.trifectaTrader },
-      { name: 'SqueezeTrader', instance: this.squeezeTrader }
+      { name: 'CascadeHunterTrader', instance: this.cascadeHunterTrader }
     ];
 
     for (const trader of activeTraders) {
@@ -240,12 +239,12 @@ class SentryCoinEngine {
   }
 
   /**
-   * Log periodic system updates
+   * Log periodic system updates (v4.1)
    */
   logPeriodicUpdate(ratio, bidVolume, askVolume, price, momentum) {
     const istTime = getISTTime();
     console.log(`📊 [${istTime}] Ratio: ${ratio.toFixed(2)}x | Price: ${formatPriceWithSymbol(price)} | Momentum: ${momentum.toFixed(3)}%`);
-    console.log(`   💰 Bid: ${bidVolume.toFixed(0)} | Ask: ${askVolume.toFixed(0)} | Signals: T:${this.stats.trifectaSignals} S:${this.stats.squeezeSignals} P:${this.stats.pressureSpikes}`);
+    console.log(`   💰 Bid: ${bidVolume.toFixed(0)} | Ask: ${askVolume.toFixed(0)} | Signals: CASCADE:${this.stats.cascadeHunterSignals} COIL:${this.stats.coilWatcherSignals} SHAKEOUT:${this.stats.shakeoutDetectorSignals}`);
   }
 
   /**

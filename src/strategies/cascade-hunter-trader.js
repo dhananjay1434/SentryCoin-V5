@@ -43,7 +43,11 @@ class CascadeHunterTrader extends EventEmitter {
       maxDrawdown: 0,
       startTime: Date.now()
     };
-    
+
+    // Position monitoring timer
+    this.positionMonitorTimer = null;
+    this.startPositionMonitoring();
+
     console.log(`🎯 CASCADE_HUNTER Trader v4.1 initialized for ${symbol}`);
     console.log(`📊 Mode: ${this.paperTrading ? 'PAPER TRADING' : 'LIVE TRADING'}`);
     console.log(`💰 Max Position: $${this.maxPositionSize}`);
@@ -164,9 +168,43 @@ class CascadeHunterTrader extends EventEmitter {
    * Monitor an active position for stop loss/take profit
    */
   monitorPosition(position) {
-    // This would be called periodically with current price updates
-    // For now, it's a placeholder for the monitoring logic
     console.log(`👁️ Monitoring position: ${position.id}`);
+  }
+
+  /**
+   * Start periodic position monitoring (backup system)
+   */
+  startPositionMonitoring() {
+    if (this.positionMonitorTimer) return;
+
+    this.positionMonitorTimer = setInterval(() => {
+      if (this.activePositions.size > 0) {
+        console.log(`🔍 Position monitor check: ${this.activePositions.size} active positions`);
+
+        // Log active positions for debugging
+        for (const [id, position] of this.activePositions) {
+          if (position.status === 'OPEN') {
+            const currentPrice = position.currentPrice || position.entryPrice;
+            const unrealizedPnL = this.calculateUnrealizedPnL(position, currentPrice);
+            console.log(`   📊 ${id}: Entry=${position.entryPrice.toFixed(6)}, Current=${currentPrice.toFixed(6)}, P&L=${unrealizedPnL.toFixed(2)}%`);
+            console.log(`   🎯 Targets: SL=${position.stopLoss.toFixed(6)}, TP=${position.takeProfit.toFixed(6)}`);
+          }
+        }
+      }
+    }, 30000); // Check every 30 seconds
+
+    console.log(`⏰ Position monitoring timer started (30s intervals)`);
+  }
+
+  /**
+   * Stop position monitoring
+   */
+  stopPositionMonitoring() {
+    if (this.positionMonitorTimer) {
+      clearInterval(this.positionMonitorTimer);
+      this.positionMonitorTimer = null;
+      console.log(`⏰ Position monitoring timer stopped`);
+    }
   }
 
   /**
@@ -303,18 +341,27 @@ class CascadeHunterTrader extends EventEmitter {
    */
   async checkExitConditions(position, currentPrice) {
     try {
-      const { entryPrice, type, stopLoss, takeProfit } = position;
+      const { entryPrice, type, stopLoss, takeProfit, id } = position;
       let exitReason = null;
 
-      // For SHORT positions (Trifecta strategy)
+      // Detailed logging for debugging
+      const unrealizedPnL = this.calculateUnrealizedPnL(position, currentPrice);
+
+      // For SHORT positions (CASCADE_HUNTER strategy)
       if (type === 'SHORT') {
         // Stop loss: price goes up beyond stop loss
         if (currentPrice >= stopLoss) {
           exitReason = 'STOP_LOSS';
+          console.log(`🛑 STOP LOSS TRIGGERED for ${id}: Price ${currentPrice.toFixed(6)} >= SL ${stopLoss.toFixed(6)}`);
         }
         // Take profit: price goes down to take profit level
         else if (currentPrice <= takeProfit) {
           exitReason = 'TAKE_PROFIT';
+          console.log(`🎯 TAKE PROFIT TRIGGERED for ${id}: Price ${currentPrice.toFixed(6)} <= TP ${takeProfit.toFixed(6)}`);
+        }
+        else {
+          // Log current status for debugging
+          console.log(`📊 Position ${id} monitoring: Price=${currentPrice.toFixed(6)}, P&L=${unrealizedPnL.toFixed(2)}%, SL=${stopLoss.toFixed(6)}, TP=${takeProfit.toFixed(6)}`);
         }
       }
       // For LONG positions (if any)
@@ -322,10 +369,12 @@ class CascadeHunterTrader extends EventEmitter {
         // Stop loss: price goes down beyond stop loss
         if (currentPrice <= stopLoss) {
           exitReason = 'STOP_LOSS';
+          console.log(`🛑 STOP LOSS TRIGGERED for ${id}: Price ${currentPrice.toFixed(6)} <= SL ${stopLoss.toFixed(6)}`);
         }
         // Take profit: price goes up to take profit level
         else if (currentPrice >= takeProfit) {
           exitReason = 'TAKE_PROFIT';
+          console.log(`🎯 TAKE PROFIT TRIGGERED for ${id}: Price ${currentPrice.toFixed(6)} >= TP ${takeProfit.toFixed(6)}`);
         }
       }
 
