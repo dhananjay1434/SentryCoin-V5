@@ -18,6 +18,8 @@
     "build": "echo 'Production build - no compilation required'",
     "organize": "node scripts/organize-codebase.js",
     "uptime": "node scripts/uptime-monitor.js",
+    "deploy:production": "node scripts/deploy-production.js",
+    "monitor:production": "node monitoring/production-dashboard.js",
     "reports:session": "curl http://localhost:3000/reports/session",
     "reports:hourly": "curl http://localhost:3000/reports/hourly",
     "reports:daily": "curl http://localhost:3000/reports/daily",
