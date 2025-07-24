@@ -64,6 +64,12 @@ services:
       - key: SQUEEZE_TIME_EXIT
         value: "300"
 
+      # Telegram Configuration (REQUIRED FOR ALERTS)
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false  # Set this in Render dashboard for security
+      - key: TELEGRAM_CHAT_ID
+        sync: false  # Set this in Render dashboard for security
+
       # System Configuration
       - key: COOLDOWN_MINUTES
         value: "5"
