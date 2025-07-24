@@ -1,6 +1,6 @@
-# 🛡️ SentryCoin v4.0 - Production Trading Engine
+# 🛡️ SentryCoin v4.0 - Production Trading Engine (Binance Edition)
 
-A sophisticated quantitative trading system that combines real-time market microstructure analysis with dual-strategy classification for cryptocurrency markets.
+A sophisticated quantitative trading system that combines real-time market microstructure analysis with dual-strategy classification for cryptocurrency markets. Optimized for Binance exchange with fallback support for multiple exchanges.
 
 ## 🎯 **Core Features**
 
@@ -45,6 +45,7 @@ TELEGRAM_CHAT_ID=your_chat_id
 
 # Trading Configuration
 SYMBOL=SPKUSDT
+EXCHANGE=binance
 PAPER_TRADING=true
 TRIFECTA_TRADING_ENABLED=true
 SQUEEZE_TRADING_ENABLED=true

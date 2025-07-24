@@ -72,13 +72,13 @@ console.log('\n🚀 Starting Market Classifier Tests...\n');
 
 // Test 1: Perfect Trifecta Conditions (SHOULD FIRE)
 runTest(
-  'Perfect Trifecta Signal',
+  'Perfect Trifecta Signal - HIGH liquidity + STRONG momentum',
   {
     askToBidRatio: 4.5,           // Well above 3.0 threshold
-    totalBidVolume: 50000,        // Well below 100k threshold
-    totalAskVolume: 225000,       // High ask volume
+    totalBidVolume: 150000,       // Well above 100k threshold (HIGH liquidity)
+    totalAskVolume: 675000,       // High ask volume (4.5x ratio)
     currentPrice: 0.162,
-    momentum: -0.5,               // Well below -0.3% threshold
+    momentum: -0.5,               // Well below -0.3% threshold (STRONG negative)
     symbol: 'SPKUSDT'
   },
   'SIGNAL',
@@ -87,13 +87,13 @@ runTest(
 
 // Test 2: Perfect Absorption Squeeze Conditions (SHOULD FIRE)
 runTest(
-  'Perfect Absorption Squeeze Signal',
+  'Perfect Absorption Squeeze Signal - LOW liquidity + WEAK momentum',
   {
     askToBidRatio: 3.5,           // Above 3.0 threshold
-    totalBidVolume: 80000,        // Below 100k threshold
-    totalAskVolume: 280000,       // High ask volume
+    totalBidVolume: 40000,        // Well below 50k threshold (LOW liquidity)
+    totalAskVolume: 140000,       // Ask volume (3.5x ratio)
     currentPrice: 0.162,
-    momentum: -0.15,              // Between -0.1% and -0.3%
+    momentum: -0.1,               // Within weak range (-0.2% < M < 0.2%)
     symbol: 'SPKUSDT'
   },
   'SIGNAL',
@@ -171,15 +171,29 @@ runTest(
   'TRIFECTA_CONVICTION_SIGNAL'
 );
 
-// Test 8: Extreme Conditions (SHOULD FIRE)
+// Test 8: Boundary Test - Should NOT fire either signal
 runTest(
-  'Extreme Flash Crash Conditions',
+  'Boundary Conditions - High pressure + Medium liquidity + Weak momentum',
+  {
+    askToBidRatio: 3.5,           // Above 3.0 threshold
+    totalBidVolume: 75000,        // Between 50k and 100k (neither HIGH nor LOW)
+    totalAskVolume: 262500,       // Ask volume (3.5x ratio)
+    currentPrice: 0.162,
+    momentum: -0.1,               // Weak momentum
+    symbol: 'SPKUSDT'
+  },
+  null  // Should not fire either signal
+);
+
+// Test 9: Extreme Trifecta Conditions (SHOULD FIRE)
+runTest(
+  'Extreme Trifecta Conditions - Very high liquidity + Strong momentum',
   {
     askToBidRatio: 10.0,          // Extreme pressure
-    totalBidVolume: 10000,        // Very thin liquidity
-    totalAskVolume: 100000,
+    totalBidVolume: 200000,       // Very high liquidity
+    totalAskVolume: 2000000,      // Extreme ask volume
     currentPrice: 0.162,
-    momentum: -2.0,               // Extreme momentum
+    momentum: -2.0,               // Extreme negative momentum
     symbol: 'SPKUSDT'
   },
   'SIGNAL',

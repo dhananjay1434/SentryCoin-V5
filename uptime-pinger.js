@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * SentryCoin 24/7 Uptime Pinger
- * 
+ * SentryCoin 24/7 Uptime Pinger - Binance Edition
+ *
  * Simple script to keep your Render service alive by pinging it every 14 minutes
  * Prevents the free tier from sleeping after 15 minutes of inactivity
+ * Optimized for Binance-compatible SentryCoin deployment
  */
 
 import https from 'https';
@@ -16,10 +17,10 @@ let pingCount = 0;
 let successCount = 0;
 let errorCount = 0;
 
-console.log('🔄 SentryCoin 24/7 Uptime Monitor Started');
+console.log('🔄 SentryCoin 24/7 Uptime Monitor Started (Binance Edition)');
 console.log(`📡 Target: ${RENDER_URL}`);
 console.log(`⏰ Interval: ${PING_INTERVAL / 1000 / 60} minutes`);
-console.log('🚀 Keeping your service alive...\n');
+console.log('🚀 Keeping your Binance-compatible service alive...\n');
 
 function ping() {
   pingCount++;

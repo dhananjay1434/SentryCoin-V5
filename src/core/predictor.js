@@ -13,7 +13,7 @@ class FlashCrashPredictor {
     this.symbol = process.env.SYMBOL || 'SPKUSDT';
     this.dangerRatio = parseFloatEnv('DANGER_RATIO', 3.0);
     this.orderBookDepth = parseIntEnv('ORDER_BOOK_DEPTH', 50);
-    this.exchange = process.env.EXCHANGE || 'coinbase'; // Default to Coinbase Pro
+    this.exchange = process.env.EXCHANGE || 'binance'; // Default to Binance
 
     // Algorithm version configuration
     this.algorithmVersion = process.env.ALGORITHM_VERSION || 'v3.0'; // Default to Trifecta
@@ -206,7 +206,7 @@ class FlashCrashPredictor {
       }
     };
 
-    return configs[this.exchange] || configs.coinbase;
+    return configs[this.exchange] || configs.binance;
   }
 
   /**
@@ -250,7 +250,7 @@ class FlashCrashPredictor {
           if (error.response?.status === 451) {
             console.log('⚠️ HTTP 451: This region may be blocked by Binance for legal/compliance reasons');
             console.log('🔄 Switching to alternative exchange...');
-            this.exchange = 'coinbase'; // Fallback to Coinbase
+            this.exchange = 'coinbase'; // Fallback to Coinbase (mock mode)
             break;
           }
           continue;
@@ -258,9 +258,10 @@ class FlashCrashPredictor {
       }
     }
 
-    // If Binance failed or using alternative exchange, try mock data for now
+    // If Binance failed or using alternative exchange, use mock data
     if (this.exchange !== 'binance') {
       console.log(`🔄 Using ${config.name} - implementing mock data for demonstration`);
+      console.log(`⚠️ Note: Using simulated data - live Binance data unavailable due to regional restrictions`);
       await this.initializeMockOrderBook();
       return;
     }
