@@ -21,6 +21,39 @@ class FlashCrashAlerter {
   }
 
   /**
+   * Safe volume formatting to avoid Telegram parsing errors
+   * @param {number} volume - Volume to format
+   * @returns {string} Safely formatted volume string
+   */
+  safeFormatVolume(volume) {
+    if (!volume || isNaN(volume)) return '0.00';
+
+    try {
+      if (volume >= 1000000) {
+        return `${(volume / 1000000).toFixed(2)}M`;
+      } else if (volume >= 1000) {
+        return `${(volume / 1000).toFixed(1)}K`;
+      }
+      return volume.toFixed(0);
+    } catch (error) {
+      return '0.00';
+    }
+  }
+
+  /**
+   * Strip Markdown formatting for fallback plain text messages
+   * @param {string} message - Message with Markdown formatting
+   * @returns {string} Plain text message
+   */
+  stripMarkdown(message) {
+    return message
+      .replace(/\*/g, '')  // Remove asterisks
+      .replace(/_/g, '')   // Remove underscores
+      .replace(/`/g, '')   // Remove backticks
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // Convert links to plain text
+  }
+
+  /**
    * Sends flash crash alert to Telegram
    * @param {Object} alertData - Alert information
    * @param {string} alertData.symbol - Trading pair symbol
@@ -69,12 +102,31 @@ class FlashCrashAlerter {
         this.lastAlertTime = Date.now();
       }
 
-      console.log(`🚨 ${alertData.alertType || 'Flash crash'} alert sent for ${symbol}`);
+      console.log(`📱 ${alertData.alertType || 'Flash crash'} alert sent for ${symbol}`);
       return true;
 
     } catch (error) {
-      console.error('❌ Failed to send Telegram alert:', error.message);
-      return false;
+      console.error('❌ Failed to send Telegram alert with Markdown:', error.message);
+
+      // Fallback: Try sending without Markdown formatting
+      try {
+        const plainMessage = this.stripMarkdown(message);
+        await this.bot.sendMessage(this.chatId, plainMessage, {
+          disable_web_page_preview: true
+        });
+
+        // Only update cooldown for CASCADE_HUNTER signals
+        if (alertData.alertType === 'CASCADE_HUNTER') {
+          this.lastAlertTime = Date.now();
+        }
+
+        console.log(`📱 ${alertData.alertType || 'Flash crash'} alert sent (plain text fallback)`);
+        return true;
+
+      } catch (fallbackError) {
+        console.error('❌ Failed to send Telegram alert (both Markdown and plain text):', fallbackError.message);
+        return false;
+      }
     }
   }
 
@@ -92,8 +144,22 @@ class FlashCrashAlerter {
       return true;
 
     } catch (error) {
-      console.error(`❌ Failed to send ${alertType} message:`, error.message);
-      return false;
+      console.error(`❌ Failed to send ${alertType} message with Markdown:`, error.message);
+
+      // Fallback: Try sending without Markdown formatting
+      try {
+        const plainMessage = this.stripMarkdown(message);
+        await this.bot.sendMessage(this.chatId, plainMessage, {
+          disable_web_page_preview: true
+        });
+
+        console.log(`📱 ${alertType} message sent (plain text fallback)`);
+        return true;
+
+      } catch (fallbackError) {
+        console.error(`❌ Failed to send ${alertType} message (both Markdown and plain text):`, fallbackError.message);
+        return false;
+      }
     }
   }
 
@@ -109,9 +175,9 @@ class FlashCrashAlerter {
 ⏰ Time: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST
 
 🎯 All three regime detectors are operational:
-• CASCADE_HUNTER (Active SHORT Trading)
-• COIL_WATCHER (Accumulation Alerts)
-• SHAKEOUT_DETECTOR (Stop Hunt Alerts)
+• CASCADE HUNTER (Active SHORT Trading)
+• COIL WATCHER (Accumulation Alerts)
+• SHAKEOUT DETECTOR (Stop Hunt Alerts)
 
 🚀 System Status: READY FOR DEPLOYMENT`;
 
@@ -156,24 +222,30 @@ class FlashCrashAlerter {
     if (signalType === 'CASCADE_HUNTER' || signalType === 'TRIFECTA_CONVICTION_SIGNAL') {
       const tradingMode = data.paperTrading !== false ? 'PAPER TRADING' : 'LIVE TRADING';
 
-      return `🚨 *SENTRYCOIN v4.1 CASCADE_HUNTER* 🚨
+      // Safe formatting to avoid Markdown parsing errors
+      const safeVolume = this.safeFormatVolume(totalBidVolume);
+      const safeMomentum = momentum ? momentum.toFixed(3) : '0.000';
+      const safeRatio = askToBidRatio ? askToBidRatio.toFixed(2) : '0.00';
+      const safePrice = currentPrice ? currentPrice.toFixed(6) : '0.000000';
+
+      return `🚨 *SENTRYCOIN v4.1 CASCADE HUNTER* 🚨
 
 📊 *Asset:* ${symbol} (BINANCE)
-💰 *Current Price:* $${currentPrice.toFixed(6)}
+💰 *Current Price:* $${safePrice}
 ⚠️ *Strategy:* SHORT (${confidence} Confidence)
-🎯 *Regime:* ${data.regime || 'DISTRIBUTION_PHASE'}
+🎯 *Regime:* ${data.regime || 'DISTRIBUTION PHASE'}
 📝 *Mode:* ${tradingMode}
 
 🔥 *CASCADE CONDITIONS MET:*
-• *Pressure:* ${askToBidRatio.toFixed(2)}x ✅ (≥3.0x)
-• *Liquidity:* ${formatVolume(totalBidVolume)} ✅ (≥100k HIGH)
-• *Momentum:* ${momentum.toFixed(3)}% ✅ (≤-0.3% STRONG)
+• *Pressure:* ${safeRatio}x ✅ (≥3.0x)
+• *Liquidity:* ${safeVolume} ✅ (≥100k HIGH)
+• *Momentum:* ${safeMomentum}% ✅ (≤-0.3% STRONG)
 
 📈 *Market Analysis:*
 High liquidity being overwhelmed by massive sell pressure. Active dumping detected in distribution phase.
 
 🎯 *Expected Outcome:* CONTINUED DECLINE
-⚡ *Action:* ${data.tradingAction || 'SHORT_EXECUTED'}
+⚡ *Action:* ${data.tradingAction || 'SHORT EXECUTED'}
 
 ⏰ *Time:* ${timestamp}
 🤖 *Engine:* SentryCoin v4.1 (Market Intelligence Platform)`;
