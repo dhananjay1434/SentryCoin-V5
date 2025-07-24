@@ -6,8 +6,19 @@ dotenv.config();
 
 class FlashCrashAlerter {
   constructor() {
-    this.bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
+    this.botToken = process.env.TELEGRAM_BOT_TOKEN;
     this.chatId = process.env.TELEGRAM_CHAT_ID;
+
+    // Validate Telegram configuration
+    if (!this.botToken || !this.chatId) {
+      console.warn('⚠️ Telegram configuration missing:');
+      console.warn(`   Bot Token: ${this.botToken ? '✅ Set' : '❌ Missing'}`);
+      console.warn(`   Chat ID: ${this.chatId ? '✅ Set' : '❌ Missing'}`);
+    } else {
+      console.log('✅ Telegram configuration loaded successfully');
+    }
+
+    this.bot = new TelegramBot(this.botToken, { polling: false });
     this.lastAlertTime = 0;
     this.cooldownMs = parseIntEnv('COOLDOWN_MINUTES', 5) * 60 * 1000;
   }
@@ -30,39 +41,46 @@ class FlashCrashAlerter {
    * @param {number} alertData.currentPrice - Current market price
    */
   async triggerFlashCrashAlert(alertData) {
+    // Check Telegram configuration
+    if (!this.botToken || !this.chatId) {
+      console.error('❌ Cannot send alert: Telegram configuration missing');
+      console.error('   Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID environment variables');
+      return false;
+    }
+
     if (this.isOnCooldown()) {
       console.log(`⏰ Alert suppressed - still in cooldown period`);
       return false;
     }
 
-    const {
-      symbol,
-      askToBidRatio,
-      totalBidVolume,
-      totalAskVolume,
-      currentPrice
-    } = alertData;
-
-    const message = this.formatAlertMessage({
-      symbol,
-      askToBidRatio,
-      totalBidVolume,
-      totalAskVolume,
-      currentPrice
-    });
+    const message = this.formatAlertMessage(alertData);
 
     try {
+      console.log(`📤 Sending Telegram alert to chat ${this.chatId}...`);
+
       await this.bot.sendMessage(this.chatId, message, {
         parse_mode: 'Markdown',
         disable_web_page_preview: true
       });
 
       this.lastAlertTime = Date.now();
-      console.log(`🚨 Flash crash alert sent for ${symbol}`);
+      console.log(`🚨 Flash crash alert sent successfully for ${alertData.symbol}`);
       return true;
 
     } catch (error) {
       console.error('❌ Failed to send Telegram alert:', error.message);
+      console.error('   Bot Token:', this.botToken ? 'Present' : 'Missing');
+      console.error('   Chat ID:', this.chatId ? this.chatId : 'Missing');
+
+      // Try to provide helpful error messages
+      if (error.message.includes('chat not found')) {
+        console.error('💡 Tip: Make sure the chat ID is correct and the bot has access to the chat');
+      } else if (error.message.includes('bot was blocked')) {
+        console.error('💡 Tip: The bot was blocked by the user. Unblock it in Telegram');
+      } else if (error.message.includes('Unauthorized')) {
+        console.error('💡 Tip: Check if the bot token is correct');
+      }
+
       return false;
     }
   }
@@ -80,16 +98,47 @@ class FlashCrashAlerter {
       totalAskVolume,
       currentPrice,
       momentum,
-      algorithmVersion
+      algorithmVersion,
+      alertType,
+      premiumSignal,
+      tradingAction,
+      confidence
     } = data;
 
     const timestamp = getISTTime();
     const riskLevel = getRiskLevel(askToBidRatio);
-    const signalType = data.signalType || 'CRITICAL';
-    const confidence = data.confidence || 'HIGH';
-    const version = algorithmVersion || 'v2.0';
+    const signalType = data.signalType || alertType || 'CRITICAL';
+    const finalConfidence = confidence || data.confidence || 'HIGH';
+    const version = algorithmVersion || 'v4.0';
 
-    // Trifecta Algorithm (v3.0) formatting
+    // SentryCoin v4.0 Trifecta Conviction Alert
+    if (alertType === 'TRIFECTA_CONVICTION' || signalType === 'TRIFECTA_CONVICTION_SIGNAL') {
+      return `🚨 *SENTRYCOIN v4.0 TRIFECTA CONVICTION* 🚨
+
+📊 *Asset:* ${symbol}
+💰 *Current Price:* $${currentPrice.toFixed(6)}
+⚠️ *Risk Level:* ${riskLevel}
+
+📈 *Market Analysis:*
+• Ask/Bid Ratio: ${askToBidRatio.toFixed(2)}x
+• Total Bid Volume: ${formatVolume(totalBidVolume)}
+• Total Ask Volume: ${formatVolume(totalAskVolume)}
+• Price Momentum: ${momentum.toFixed(2)}%
+
+🎯 *Signal Analysis:*
+• Type: LIQUIDITY CASCADE
+• Confidence: ${finalConfidence}
+• Strategy: SHORT RECOMMENDED
+• Expected: CONTINUED DECLINE
+
+⚡ *Implication:* Strong negative momentum with severe order book imbalance
+🛡️ *Action:* HIGH probability flash crash - Consider protective measures
+
+⏰ *Time:* ${timestamp}
+🤖 *Engine:* SentryCoin v4.0 Dual-Strategy Engine`;
+    }
+
+    // Trifecta Algorithm (v3.0) formatting - legacy support
     if (signalType === 'TRIFECTA' && version === 'v3.0') {
       const pressureCondition = askToBidRatio > 3.0;
       const liquidityCondition = totalBidVolume < 100000;

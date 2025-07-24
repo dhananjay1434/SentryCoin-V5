@@ -15,6 +15,9 @@ import MarketClassifier from './market-classifier.js';
 import TrifectaTrader from './trifecta-trader.js';
 import SqueezeTrader from './squeeze-trader.js';
 import DetailedReporter from './detailed-reporter.js';
+import ShadowTradingEngine from './shadow-trading-engine.js';
+import FeaturePipeline from './feature-pipeline.js';
+import WaveletAnalyzer from './wavelet-analyzer.js';
 import cloudStorage from './cloud-storage.js';
 import { validateEnvironmentVariables, getISTTime } from './utils.js';
 import express from 'express';
@@ -75,6 +78,16 @@ class SentryCoinV4 {
       // Initialize detailed reporter
       this.reporter = new DetailedReporter(this.symbol);
       console.log('✅ Detailed reporter initialized');
+
+      // Initialize quantitative analysis components
+      this.shadowTrading = new ShadowTradingEngine(this.symbol);
+      console.log('✅ Shadow trading engine initialized');
+
+      this.featurePipeline = new FeaturePipeline(this.symbol);
+      console.log('✅ Feature pipeline initialized');
+
+      this.waveletAnalyzer = new WaveletAnalyzer(this.symbol);
+      console.log('✅ Wavelet analyzer initialized');
       
       // Set up event listeners
       this.setupEventListeners();
@@ -105,12 +118,29 @@ class SentryCoinV4 {
       this.stats.trifectaSignals++;
       this.trifectaTrader.handleTrifectaSignal(signal);
       this.reporter.recordTrifectaSignal(signal);
+
+      // Execute shadow trade for P&L tracking
+      this.executeShadowTrade(signal, 'SHORT');
+    });
     });
 
     this.classifier.on('ABSORPTION_SQUEEZE_SIGNAL', (signal) => {
       this.stats.squeezeSignals++;
       this.squeezeTrader.handleSqueezeSignal(signal);
       this.reporter.recordSqueezeSignal(signal);
+
+      // Execute shadow trade for P&L tracking
+      this.executeShadowTrade(signal, 'LONG');
+    });
+
+    // Connect wavelet analyzer for predictive signals
+    this.waveletAnalyzer.on('predictiveSignal', (signal) => {
+      console.log(`🌊 Predictive cascade signal detected - preparing for potential Trifecta`);
+      this.reporter.recordPredictiveSignal(signal);
+    });
+
+    this.waveletAnalyzer.on('predictionConfirmed', (confirmation) => {
+      console.log(`✅ Wavelet prediction confirmed with ${confirmation.leadTime}s lead time`);
     });
 
     // Connect trading modules to reporter
@@ -171,6 +201,22 @@ class SentryCoinV4 {
       
       const classification = this.classifier.classifyMarketCondition(marketData);
 
+      // Process through feature pipeline for quantitative analysis
+      if (this.featurePipeline) {
+        const featureVector = this.featurePipeline.processOrderBookUpdate({
+          timestamp: Date.now(),
+          bids: orderBook.bids,
+          asks: orderBook.asks,
+          currentPrice,
+          symbol: this.symbol
+        });
+
+        // Feed features to wavelet analyzer for predictive signals
+        if (featureVector && this.waveletAnalyzer) {
+          this.waveletAnalyzer.processFeatureVector(featureVector);
+        }
+      }
+
       // Record classification in detailed reporter
       if (this.reporter) {
         this.reporter.recordClassification(classification || {
@@ -197,6 +243,41 @@ class SentryCoinV4 {
   }
 
   /**
+   * Execute shadow trade for P&L simulation
+   */
+  async executeShadowTrade(signal, direction) {
+    if (!this.shadowTrading) return;
+
+    try {
+      const orderSize = parseFloat(process.env.SHADOW_ORDER_SIZE || '1000'); // $1000 default
+      const position = await this.shadowTrading.executeOrder(signal, direction, orderSize);
+
+      // Set up automatic position management
+      this.manageShadowPosition(position, signal);
+
+    } catch (error) {
+      console.error(`❌ Shadow trade execution failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Manage shadow position lifecycle
+   */
+  manageShadowPosition(position, signal) {
+    // Set up exit conditions based on signal type
+    const exitTimeMs = signal.type === 'TRIFECTA_CONVICTION_SIGNAL' ? 120000 : 300000; // 2min vs 5min
+
+    setTimeout(async () => {
+      try {
+        const marketData = await this.shadowTrading.getMarketDataAtTime(Date.now());
+        await this.shadowTrading.closePosition(position.id, 'TIME_EXIT', marketData);
+      } catch (error) {
+        console.error(`❌ Shadow position close failed: ${error.message}`);
+      }
+    }, exitTimeMs);
+  }
+
+  /**
    * Update all active positions with current price
    */
   updateAllPositions(currentPrice) {
@@ -204,10 +285,25 @@ class SentryCoinV4 {
     for (const positionId of this.trifectaTrader.activePositions.keys()) {
       this.trifectaTrader.updatePosition(positionId, currentPrice);
     }
-    
+
     // Update Squeeze positions
     for (const positionId of this.squeezeTrader.activePositions.keys()) {
       this.squeezeTrader.updatePosition(positionId, currentPrice);
+    }
+
+    // Update shadow positions
+    if (this.shadowTrading) {
+      const marketData = {
+        midPrice: currentPrice,
+        bidPrice: currentPrice * 0.999,
+        askPrice: currentPrice * 1.001,
+        bidVolume: 50000,
+        askVolume: 50000
+      };
+
+      for (const [positionId] of this.shadowTrading.positions) {
+        this.shadowTrading.updatePosition(positionId, marketData);
+      }
     }
   }
 
@@ -325,6 +421,9 @@ class SentryCoinV4 {
       classifier: this.classifier ? this.classifier.getStats() : null,
       trifectaTrader: this.trifectaTrader ? this.trifectaTrader.getStats() : null,
       squeezeTrader: this.squeezeTrader ? this.squeezeTrader.getStats() : null,
+      shadowTrading: this.shadowTrading ? this.shadowTrading.getPerformanceStats() : null,
+      featurePipeline: this.featurePipeline ? this.featurePipeline.getStats() : null,
+      waveletAnalyzer: this.waveletAnalyzer ? this.waveletAnalyzer.getStats() : null,
       cloudStorage: cloudStorage.getStats()
     };
   }

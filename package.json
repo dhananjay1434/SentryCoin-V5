@@ -26,6 +26,7 @@
     "backtest:trifecta": "node trifecta-backtest.js",
     "backtest:v4": "node src/backtest-v4.js",
     "connectivity": "node src/connectivity-test.js",
+    "test:telegram": "node test-telegram.js",
     "build": "echo 'No build step required for Node.js'",
     "validation-report": "node view-validation-report.js",
     "download-reports": "pwsh ./download-detailed-reports.ps1",

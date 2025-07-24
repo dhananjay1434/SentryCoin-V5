@@ -55,24 +55,24 @@ class TrifectaTrader extends EventEmitter {
    */
   async handleTrifectaSignal(signal) {
     this.stats.signalsReceived++;
-    
+
     const istTime = getISTTime();
     console.log(`🚨 TRIFECTA CONVICTION SIGNAL RECEIVED [${istTime}]`);
     console.log(`   📊 ${signal.symbol}: $${signal.currentPrice.toFixed(6)}`);
     console.log(`   📈 Momentum: ${signal.momentum.toFixed(2)}% (Strong Negative)`);
     console.log(`   ⚡ Ratio: ${signal.askToBidRatio.toFixed(2)}x | Liquidity: ${signal.totalBidVolume.toFixed(0)}`);
-    
+
+    // ALWAYS send premium alert regardless of trading status
+    await this.sendPremiumAlert(signal);
+
     if (!this.enabled) {
-      console.log(`⏸️ Trading disabled - signal logged only`);
+      console.log(`⏸️ Trading disabled - signal logged only (but alert sent)`);
       await this.logSignal(signal);
       return;
     }
 
     // Execute the short strategy
     await this.executeShortStrategy(signal);
-    
-    // Send premium alert to subscribers
-    await this.sendPremiumAlert(signal);
   }
 
   /**

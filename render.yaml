@@ -45,6 +45,8 @@ services:
         value: "true"
       - key: SQUEEZE_TRADING_ENABLED
         value: "true"
+      - key: ALERTS_ENABLED
+        value: "true"
 
       # Position Management
       - key: TRIFECTA_MAX_POSITION
