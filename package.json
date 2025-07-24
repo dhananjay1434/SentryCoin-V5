@@ -15,6 +15,7 @@
     "test:realworld": "node tests/real-world-transaction-test.js",
     "test:optimization": "node tests/wallet-centric-optimization-test.js",
     "test:integration": "node tests/integration/connectivity.test.js",
+    "test:integration:predatory": "node tests/integration/predatory-whale-integration.test.js",
     "backtest": "node scripts/run-backtest.js",
     "backtest:fetch": "node scripts/run-backtest.js fetch",
     "backtest:test": "node scripts/run-backtest.js test",

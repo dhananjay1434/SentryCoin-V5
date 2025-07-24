@@ -24,17 +24,19 @@ export default class OnChainMonitor extends EventEmitter {
     this.moralisApiKey = process.env.MORALIS_API_KEY;
     this.alchemyApiKey = process.env.ALCHEMY_API_KEY;
 
-    // v4.5 Whale Watchlist (Top 50 holders forensic analysis)
+    // v4.6 DEFENSIVE: Whale Watchlist with proper validation
     this.whaleWatchlist = new Set([
-      process.env.WHALE_ADDRESS_1?.toLowerCase(),
-      process.env.WHALE_ADDRESS_2?.toLowerCase(),
-      process.env.WHALE_ADDRESS_3?.toLowerCase(),
-      process.env.WHALE_ADDRESS_4?.toLowerCase(),
-      process.env.WHALE_ADDRESS_5?.toLowerCase(),
-      process.env.WHALE_ADDRESS_6?.toLowerCase(),
-      process.env.WHALE_ADDRESS_7?.toLowerCase(),
-      process.env.WHALE_ADDRESS_8?.toLowerCase(),
-    ].filter(addr => addr && addr !== 'undefined'));
+      process.env.WHALE_ADDRESS_1,
+      process.env.WHALE_ADDRESS_2,
+      process.env.WHALE_ADDRESS_3,
+      process.env.WHALE_ADDRESS_4,
+      process.env.WHALE_ADDRESS_5,
+      process.env.WHALE_ADDRESS_6,
+      process.env.WHALE_ADDRESS_7,
+      process.env.WHALE_ADDRESS_8,
+    ]
+    .filter(addr => addr && addr !== 'undefined' && addr.length === 42 && addr.startsWith('0x'))
+    .map(addr => addr.toLowerCase()));
 
     // v4.6 Predatory State Machine Thresholds
     this.whaleHuntTriggerThreshold = parseIntEnv('WHALE_HUNT_TRIGGER_THRESHOLD', 3000000); // 3M SPK triggers hunt
@@ -212,6 +214,12 @@ export default class OnChainMonitor extends EventEmitter {
     console.log(`🔍 Scanning ${this.whaleWatchlist.size} whale addresses for activity...`);
 
     for (const whaleAddress of this.whaleWatchlist) {
+      // v4.6 DEFENSIVE: Validate whale address before processing
+      if (!whaleAddress || typeof whaleAddress !== 'string' || whaleAddress.length !== 42) {
+        console.warn(`⚠️ Invalid whale address skipped: ${whaleAddress}`);
+        continue;
+      }
+
       try {
         await this.checkSpecificWhaleAddress(whaleAddress);
         await this.sleep(200); // Rate limiting: 5 calls/sec (well within limits)
@@ -333,6 +341,13 @@ export default class OnChainMonitor extends EventEmitter {
 
     try {
       const amount = parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18));
+
+      // v4.6 DEFENSIVE: Validate address fields before toLowerCase()
+      if (!tx.from || !tx.to || typeof tx.from !== 'string' || typeof tx.to !== 'string') {
+        console.warn(`⚠️ Invalid address fields: from=${tx.from}, to=${tx.to}`);
+        return;
+      }
+
       const fromAddr = tx.from.toLowerCase();
       const toAddr = tx.to.toLowerCase();
       const timestamp = parseInt(tx.timeStamp) * 1000;
@@ -393,6 +408,12 @@ export default class OnChainMonitor extends EventEmitter {
    * v4.6 PATTERN ANALYSIS: Process different whale transaction patterns
    */
   async processTransactionPatterns(tx, amount, fromAddr, toAddr, timestamp, isFromWatchlist, isToExchange, isFromExchange) {
+    // v4.6 DEFENSIVE: Validate all addresses before pattern analysis
+    if (!fromAddr || !toAddr || typeof fromAddr !== 'string' || typeof toAddr !== 'string') {
+      console.warn(`⚠️ Invalid addresses in pattern analysis: from=${fromAddr}, to=${toAddr}`);
+      return;
+    }
+
     // PATTERN 1: Whale → Exchange (DUMP SIGNAL)
     if (isFromWatchlist && isToExchange && amount >= this.whaleHuntTriggerThreshold) {
       console.log(`🚨 WHALE DUMP DETECTED: ${fromAddr.substring(0,8)}... → Exchange`);
