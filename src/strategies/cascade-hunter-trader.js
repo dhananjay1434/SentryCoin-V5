@@ -32,8 +32,9 @@ class CascadeHunterTrader extends EventEmitter {
     this.activePositions = new Map();
     this.positionHistory = [];
     
-    // Performance metrics
-    this.stats = {
+    // Performance metrics - load from persistent storage or initialize
+    this.statsFile = `./data/cascade-hunter-stats-${symbol}.json`;
+    this.stats = this.loadPersistedStats() || {
       signalsReceived: 0,
       positionsOpened: 0,
       positionsClosed: 0,
@@ -41,7 +42,8 @@ class CascadeHunterTrader extends EventEmitter {
       losersCount: 0,
       totalPnL: 0,
       maxDrawdown: 0,
-      startTime: Date.now()
+      startTime: Date.now(),
+      sessionStartTime: Date.now() // Track current session separately
     };
 
     // Position monitoring timer
@@ -239,16 +241,19 @@ class CascadeHunterTrader extends EventEmitter {
     // Update statistics
     this.stats.positionsClosed++;
     this.stats.totalPnL += position.realizedPnL;
-    
+
     if (position.realizedPnL > 0) {
       this.stats.winnersCount++;
     } else {
       this.stats.losersCount++;
     }
 
+    // Save updated statistics to persistent storage
+    this.savePersistedStats();
+
     // Remove from active positions
     this.activePositions.delete(position.id);
-    
+
     // Add to history
     this.positionHistory.push(position);
 
@@ -406,14 +411,55 @@ class CascadeHunterTrader extends EventEmitter {
   }
 
   /**
+   * Load persisted statistics from file
+   */
+  loadPersistedStats() {
+    try {
+      const fs = require('fs');
+      if (fs.existsSync(this.statsFile)) {
+        const data = JSON.parse(fs.readFileSync(this.statsFile, 'utf8'));
+        data.sessionStartTime = Date.now(); // Reset session start time
+        console.log(`📊 Loaded persisted CASCADE_HUNTER stats: ${data.positionsClosed} trades, ${data.totalPnL.toFixed(2)}% total P&L`);
+        return data;
+      }
+    } catch (error) {
+      console.warn(`⚠️ Could not load persisted stats: ${error.message}`);
+    }
+    return null;
+  }
+
+  /**
+   * Save statistics to persistent storage
+   */
+  savePersistedStats() {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+
+      // Ensure data directory exists
+      const dataDir = path.dirname(this.statsFile);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+
+      fs.writeFileSync(this.statsFile, JSON.stringify(this.stats, null, 2));
+    } catch (error) {
+      console.warn(`⚠️ Could not save persisted stats: ${error.message}`);
+    }
+  }
+
+  /**
    * Get trading performance statistics
    */
   getStats() {
-    const winRate = this.stats.positionsClosed > 0 ? 
+    const winRate = this.stats.positionsClosed > 0 ?
       (this.stats.winnersCount / this.stats.positionsClosed * 100).toFixed(2) : 0;
-    
-    const avgPnL = this.stats.positionsClosed > 0 ? 
+
+    const avgPnL = this.stats.positionsClosed > 0 ?
       (this.stats.totalPnL / this.stats.positionsClosed).toFixed(2) : 0;
+
+    const sessionUptime = Math.floor((Date.now() - this.stats.sessionStartTime) / 1000);
+    const totalUptime = Math.floor((Date.now() - this.stats.startTime) / 1000);
 
     return {
       ...this.stats,
@@ -421,7 +467,9 @@ class CascadeHunterTrader extends EventEmitter {
       winRate: `${winRate}%`,
       avgPnL: `${avgPnL}%`,
       totalPnL: `${this.stats.totalPnL.toFixed(2)}%`,
-      uptime: Math.floor((Date.now() - this.stats.startTime) / 1000)
+      sessionUptime: sessionUptime,
+      totalUptime: totalUptime,
+      uptime: sessionUptime // For backward compatibility
     };
   }
 }
