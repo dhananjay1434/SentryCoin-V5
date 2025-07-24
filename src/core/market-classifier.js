@@ -58,37 +58,43 @@ class MarketClassifier extends EventEmitter {
 
     this.stats.totalClassifications++;
 
-    // Step 1: Check if basic Trifecta conditions are met
+    // Step 1: Check if basic pressure condition is met (required for both signals)
     const pressureCondition = askToBidRatio > this.pressureThreshold;
-    const liquidityCondition = totalBidVolume < this.liquidityThreshold;
 
-    // 🔍 DIAGNOSTIC LOGGING - Show all condition checks
+    // 🔍 ENHANCED DIAGNOSTIC LOGGING - Show conditions for both signal types
     const pressureCheck = pressureCondition ? '✅' : '❌';
-    const liquidityCheck = liquidityCondition ? '✅' : '❌';
-    const momentumCheck = momentum <= this.strongMomentumThreshold ? '✅' : '❌';
 
-    const diagnosticLog = `[DIAGNOSTIC] Pressure ${pressureCheck} (${askToBidRatio.toFixed(2)}x vs ${this.pressureThreshold}x), ` +
-                         `Liquidity ${liquidityCheck} (${(totalBidVolume/1000).toFixed(1)}k vs ${(this.liquidityThreshold/1000).toFixed(1)}k), ` +
-                         `Momentum ${momentumCheck} (${momentum.toFixed(3)}% vs ${this.strongMomentumThreshold}%)`;
+    // Trifecta conditions (HIGH liquidity + STRONG momentum)
+    const trifectaLiquidityCheck = totalBidVolume >= this.liquidityThreshold ? '✅' : '❌';
+    const trifectaMomentumCheck = momentum <= this.strongMomentumThreshold ? '✅' : '❌';
+
+    // Squeeze conditions (LOW liquidity + WEAK momentum)
+    const squeezeLiquidityCheck = totalBidVolume < (this.liquidityThreshold * 0.5) ? '✅' : '❌';
+    const squeezeMomentumCheck = (momentum > -0.2 && momentum < 0.2) ? '✅' : '❌';
+
+    const diagnosticLog = `[DIAGNOSTIC] Pressure ${pressureCheck} (${askToBidRatio.toFixed(2)}x vs ${this.pressureThreshold}x)\n` +
+                         `   TRIFECTA:  Liquidity ${trifectaLiquidityCheck} (${(totalBidVolume/1000).toFixed(1)}k ≥ ${(this.liquidityThreshold/1000).toFixed(1)}k), ` +
+                         `Momentum ${trifectaMomentumCheck} (${momentum.toFixed(3)}% ≤ ${this.strongMomentumThreshold}%)\n` +
+                         `   SQUEEZE:   Liquidity ${squeezeLiquidityCheck} (${(totalBidVolume/1000).toFixed(1)}k < ${(this.liquidityThreshold * 0.5/1000).toFixed(1)}k), ` +
+                         `Momentum ${squeezeMomentumCheck} (-0.2% < ${momentum.toFixed(3)}% < 0.2%)`;
 
     // Log every 10th classification or when conditions are close to triggering
     const shouldLog = this.stats.totalClassifications % 10 === 0 ||
                      askToBidRatio > (this.pressureThreshold * 0.8) ||
-                     totalBidVolume < (this.liquidityThreshold * 1.2) ||
-                     momentum < (this.strongMomentumThreshold * 0.8);
+                     totalBidVolume >= (this.liquidityThreshold * 0.8) ||
+                     totalBidVolume < (this.liquidityThreshold * 0.6) ||
+                     Math.abs(momentum) > 0.1;
 
     if (shouldLog) {
       console.log(diagnosticLog);
     }
 
-    if (!pressureCondition || !liquidityCondition) {
-      // No signal - market conditions are normal
+    if (!pressureCondition) {
+      // No signal - pressure condition not met (required for both signals)
       this.stats.noSignals++;
 
-      // Log why the signal failed (only occasionally to avoid spam)
       if (shouldLog) {
-        const failureReason = !pressureCondition ? 'PRESSURE_TOO_LOW' : 'LIQUIDITY_TOO_HIGH';
-        console.log(`🔍 Signal blocked: ${failureReason}`);
+        console.log(`🔍 Signal blocked: PRESSURE_TOO_LOW (${askToBidRatio.toFixed(2)}x < ${this.pressureThreshold}x)`);
       }
 
       return null;
@@ -126,73 +132,92 @@ class MarketClassifier extends EventEmitter {
   }
 
   /**
-   * The momentum-based classification logic
-   * This is where the magic happens - the key insight from the data analysis
+   * COMPLETELY REWRITTEN: Mutually exclusive signal classification
+   * Each signal type has distinct, non-overlapping conditions based on liquidity AND momentum
    */
   classifyByMomentum(momentum, marketData) {
-    if (momentum <= this.strongMomentumThreshold) {
-      // PHENOMENON A: Liquidity Cascade
-      // Strong negative momentum + pressure + thin liquidity = True flash crash
+    const { askToBidRatio, totalBidVolume, totalAskVolume } = marketData;
+
+    // 🎯 TRIFECTA CONVICTION SIGNAL (SHORT Strategy)
+    // Requires: HIGH pressure + HIGH liquidity + STRONG negative momentum
+    const trifectaConditions = {
+      pressure: askToBidRatio >= this.pressureThreshold,           // > 3.0x
+      liquidity: totalBidVolume >= this.liquidityThreshold,       // >= 100k (HIGH liquidity)
+      momentum: momentum <= this.strongMomentumThreshold          // <= -0.3% (STRONG negative)
+    };
+
+    const isTrifectaSignal = trifectaConditions.pressure && trifectaConditions.liquidity && trifectaConditions.momentum;
+
+    if (isTrifectaSignal) {
+      console.log(`✅ TRIFECTA CONDITIONS MET: Pressure=${askToBidRatio.toFixed(2)}x, Liquidity=${(totalBidVolume/1000).toFixed(1)}k, Momentum=${momentum.toFixed(3)}%`);
       this.stats.trifectaConvictions++;
-      
+
       return {
         type: 'TRIFECTA_CONVICTION_SIGNAL',
         strategy: 'SHORT',
         confidence: 'HIGH',
         phenomenon: 'LIQUIDITY_CASCADE',
-        description: 'Active panic selling with strong downward momentum',
-        ...marketData,
+        description: 'High liquidity being overwhelmed by massive sell pressure',
+        symbol: marketData.symbol || this.symbol || 'UNKNOWN',
+        exchange: 'COINBASE',
+        currentPrice: marketData.currentPrice,
+        askToBidRatio: marketData.askToBidRatio,
+        totalBidVolume: marketData.totalBidVolume,
+        totalAskVolume: marketData.totalAskVolume,
+        timestamp: marketData.timestamp,
         momentum,
         classification: {
-          pressure: marketData.pressureCondition,
-          liquidity: marketData.liquidityCondition,
+          pressure: trifectaConditions.pressure,
+          liquidity: trifectaConditions.liquidity,
           momentum: 'STRONG_NEGATIVE',
           expectedOutcome: 'CONTINUED_DECLINE'
         }
       };
-      
-    } else if (momentum <= this.weakMomentumThreshold) {
-      // PHENOMENON B: Forced Absorption (Weak Negative Momentum)
-      // Weak negative momentum + pressure + thin liquidity = Absorption squeeze
+    }
+
+    // 🔄 ABSORPTION SQUEEZE SIGNAL (LONG Strategy)
+    // Requires: HIGH pressure + LOW liquidity + WEAK/NEUTRAL momentum
+    const lowLiquidityThreshold = this.liquidityThreshold * 0.5; // 50k for LOW liquidity
+    const squeezeConditions = {
+      pressure: askToBidRatio >= this.pressureThreshold,           // > 3.0x
+      liquidity: totalBidVolume < lowLiquidityThreshold,          // < 50k (LOW liquidity)
+      momentum: momentum > -0.2 && momentum < 0.2                 // Weak/neutral momentum range
+    };
+
+    const isSqueezeSignal = squeezeConditions.pressure && squeezeConditions.liquidity && squeezeConditions.momentum;
+
+    if (isSqueezeSignal) {
+      console.log(`✅ ABSORPTION SQUEEZE CONDITIONS MET: Pressure=${askToBidRatio.toFixed(2)}x, Liquidity=${(totalBidVolume/1000).toFixed(1)}k, Momentum=${momentum.toFixed(3)}%`);
       this.stats.absorptionSqueezes++;
-      
+
       return {
         type: 'ABSORPTION_SQUEEZE_SIGNAL',
         strategy: 'LONG',
         confidence: 'MEDIUM',
         phenomenon: 'FORCED_ABSORPTION',
-        description: 'Large sellers being absorbed by resilient buyers',
-        ...marketData,
+        description: 'Thin liquidity absorbing sell pressure with weak momentum',
+        symbol: marketData.symbol || this.symbol || 'UNKNOWN',
+        exchange: 'COINBASE',
+        currentPrice: marketData.currentPrice,
+        askToBidRatio: marketData.askToBidRatio,
+        totalBidVolume: marketData.totalBidVolume,
+        totalAskVolume: marketData.totalAskVolume,
+        timestamp: marketData.timestamp,
         momentum,
         classification: {
-          pressure: marketData.pressureCondition,
-          liquidity: marketData.liquidityCondition,
-          momentum: 'WEAK_NEGATIVE',
+          pressure: squeezeConditions.pressure,
+          liquidity: squeezeConditions.liquidity,
+          momentum: momentum > 0 ? 'WEAK_POSITIVE' : 'WEAK_NEGATIVE',
           expectedOutcome: 'MEAN_REVERSION_UP'
         }
       };
-      
-    } else {
-      // PHENOMENON B: Forced Absorption (Positive/Neutral Momentum)
-      // Positive momentum + pressure + thin liquidity = Strong absorption squeeze
-      this.stats.absorptionSqueezes++;
-      
-      return {
-        type: 'ABSORPTION_SQUEEZE_SIGNAL',
-        strategy: 'LONG',
-        confidence: 'HIGH',
-        phenomenon: 'FORCED_ABSORPTION',
-        description: 'Strong buying pressure overwhelming sell walls',
-        ...marketData,
-        momentum,
-        classification: {
-          pressure: marketData.pressureCondition,
-          liquidity: marketData.liquidityCondition,
-          momentum: momentum > 0 ? 'POSITIVE' : 'NEUTRAL',
-          expectedOutcome: 'STRONG_SQUEEZE_UP'
-        }
-      };
     }
+
+    // 🚫 NO SIGNAL - Conditions not met for either strategy
+    console.log(`❌ NO SIGNAL: Neither Trifecta nor Absorption conditions met`);
+    console.log(`   Trifecta: P=${trifectaConditions.pressure ? '✅' : '❌'} L=${trifectaConditions.liquidity ? '✅' : '❌'} M=${trifectaConditions.momentum ? '✅' : '❌'} (need P>3x, L≥100k, M≤-0.3%)`);
+    console.log(`   Squeeze:  P=${squeezeConditions.pressure ? '✅' : '❌'} L=${squeezeConditions.liquidity ? '✅' : '❌'} M=${squeezeConditions.momentum ? '✅' : '❌'} (need P>3x, L<50k, -0.2%<M<0.2%)`);
+    return null;
   }
 
   /**

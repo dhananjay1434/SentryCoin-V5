@@ -470,19 +470,19 @@ class FlashCrashPredictor {
     const testScenario = Math.random();
 
     if (testScenario < 0.05) { // 5% chance - GUARANTEED TRIFECTA SIGNAL
-      console.log('🎭 FORCING TRIFECTA CONDITIONS: High pressure + Low liquidity + Strong momentum');
+      console.log('🎭 FORCING TRIFECTA CONDITIONS: High pressure + HIGH liquidity + Strong momentum');
       this.forceSignalCondition({
         pressure: 4.5,        // Well above 3.0 threshold
-        liquidity: 50000,     // Well below 100k threshold
+        liquidity: 150000,    // Well above 100k threshold (HIGH liquidity)
         momentum: -0.5        // Well below -0.3% threshold
       }, mockUpdate, basePrice, priceChange);
 
     } else if (testScenario < 0.1) { // 5% chance - ABSORPTION SQUEEZE SIGNAL
-      console.log('🎭 FORCING ABSORPTION CONDITIONS: High pressure + Low liquidity + Weak momentum');
+      console.log('🎭 FORCING ABSORPTION CONDITIONS: High pressure + LOW liquidity + Weak momentum');
       this.forceSignalCondition({
         pressure: 3.5,        // Above 3.0 threshold
-        liquidity: 80000,     // Below 100k threshold
-        momentum: -0.15       // Between -0.1% and -0.3%
+        liquidity: 40000,     // Well below 50k threshold (LOW liquidity)
+        momentum: -0.1        // Weak momentum (-0.2% < M < 0.2%)
       }, mockUpdate, basePrice, priceChange);
 
     } else if (testScenario < 0.15) { // 5% chance - NEAR MISS (for testing thresholds)
@@ -508,10 +508,11 @@ class FlashCrashPredictor {
 
   /**
    * Forces specific market conditions for deterministic testing
+   * FIXED: Now correctly calculates required base price for target momentum
    * @param {Object} targetState - Target market conditions
    * @param {Object} mockUpdate - Mock update object to modify
-   * @param {number} basePrice - Base price for calculations
-   * @param {number} priceChange - Price change for momentum
+   * @param {number} basePrice - Current base price
+   * @param {number} priceChange - Ignored (calculated dynamically)
    */
   forceSignalCondition(targetState, mockUpdate, basePrice, priceChange) {
     const { pressure, liquidity, momentum } = targetState;
@@ -522,10 +523,10 @@ class FlashCrashPredictor {
     mockUpdate.b = [];
     mockUpdate.a = [];
 
-    // Calculate required volumes to achieve target pressure ratio
+    // Calculate required volumes to achieve target pressure ratio and liquidity
     // pressure = totalAskVolume / totalBidVolume
-    // We want totalBidVolume < liquidity threshold
-    const targetBidVolume = Math.min(liquidity * 0.8, 80000); // Ensure below threshold
+    // liquidity = totalBidVolume (exact target, not relative to threshold)
+    const targetBidVolume = liquidity; // Use exact liquidity value
     const targetAskVolume = targetBidVolume * pressure;
 
     // Create bid side (limited volume to meet liquidity condition)
@@ -548,21 +549,33 @@ class FlashCrashPredictor {
       mockUpdate.a.push([askPrice, askQuantity]);
     }
 
-    // Force momentum by manipulating price history
-    // Momentum is calculated from recent price changes
-    const targetPriceChange = (momentum / 100) * basePrice; // Convert percentage to absolute
-    const forcedPrice = basePrice + targetPriceChange;
+    // 🔧 CRITICAL FIX: Dynamic momentum calculation
+    // Calculate the required base price to achieve target momentum
+    // Formula: basePrice = currentPrice / (1 + (targetMomentum / 100))
+    const currentPrice = basePrice;
+    const requiredBasePrice = currentPrice / (1 + (momentum / 100));
 
-    // Update the current price to achieve target momentum
-    this.lastPrice = forcedPrice;
+    console.log(`🧮 Momentum calculation: Target=${momentum}%, Current=${currentPrice.toFixed(6)}, RequiredBase=${requiredBasePrice.toFixed(6)}`);
 
-    // Add the forced price change to price history
-    if (this.priceHistory.length >= this.maxPriceHistoryLength) {
-      this.priceHistory.shift();
+    // Clear and rebuild price history with calculated base price
+    this.priceHistory = [];
+
+    // Add historical points leading up to the required base price
+    const historyPoints = 10;
+    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+
+    for (let i = 0; i < historyPoints; i++) {
+      const timestamp = fiveMinutesAgo + (i * 30000); // 30-second intervals
+      const price = requiredBasePrice + (Math.random() - 0.5) * 0.001; // Small random variation
+      this.priceHistory.push({ price, timestamp });
     }
-    this.priceHistory.push(forcedPrice);
 
-    console.log(`📊 Forced market state: BidVol=${targetBidVolume.toFixed(0)}, AskVol=${targetAskVolume.toFixed(0)}, Price=${forcedPrice.toFixed(6)}`);
+    // Add the current price as the latest point
+    this.priceHistory.push({ price: currentPrice, timestamp: Date.now() });
+    this.lastPrice = currentPrice;
+
+    console.log(`📊 Forced market state: BidVol=${targetBidVolume.toFixed(0)}, AskVol=${targetAskVolume.toFixed(0)}, Price=${currentPrice.toFixed(6)}`);
+    console.log(`📈 Price history rebuilt: Base=${requiredBasePrice.toFixed(6)} → Current=${currentPrice.toFixed(6)} = ${momentum.toFixed(3)}% momentum`);
   }
 
   /**
