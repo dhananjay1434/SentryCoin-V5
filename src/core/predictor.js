@@ -301,14 +301,14 @@ class FlashCrashPredictor {
     for (let i = 0; i < this.orderBookDepth; i++) {
       const price = basePrice - (i * 0.01);
       const quantity = Math.random() * 10 + 1;
-      mockBids.push([price.toFixed(2), quantity.toFixed(4)]);
+      mockBids.push([price.toFixed(6), quantity.toFixed(4)]);
     }
 
     // Generate 50 levels of mock asks (above current price)
     for (let i = 0; i < this.orderBookDepth; i++) {
       const price = basePrice + (i * 0.01);
       const quantity = Math.random() * 10 + 1;
-      mockAsks.push([price.toFixed(2), quantity.toFixed(4)]);
+      mockAsks.push([price.toFixed(6), quantity.toFixed(4)]);
     }
 
     this.populateOrderBook(mockBids, mockAsks, Date.now());

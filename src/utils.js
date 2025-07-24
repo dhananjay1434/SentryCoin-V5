@@ -50,6 +50,28 @@ export function formatVolume(volume) {
 }
 
 /**
+ * Formats price to exactly 6 decimal places for maximum precision
+ * @param {number} price - Price to format
+ * @returns {string} Formatted price string with exactly 6 decimal places
+ */
+export function formatPrice(price) {
+  if (typeof price !== 'number' || isNaN(price)) {
+    return '0.000000';
+  }
+  return price.toFixed(6);
+}
+
+/**
+ * Formats price with currency symbol
+ * @param {number} price - Price to format
+ * @param {string} symbol - Currency symbol (default: $)
+ * @returns {string} Formatted price string with currency symbol
+ */
+export function formatPriceWithSymbol(price, symbol = '$') {
+  return `${symbol}${formatPrice(price)}`;
+}
+
+/**
  * Generates a unique signal ID
  * @returns {string} Unique signal identifier
  */

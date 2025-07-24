@@ -9,7 +9,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { getISTTime, parseFloatEnv, parseIntEnv } from '../utils/index.js';
+import { getISTTime, parseFloatEnv, parseIntEnv, formatPrice, formatPriceWithSymbol } from '../utils/index.js';
 import cloudStorage from '../services/cloud-storage.js';
 
 class MarketClassifier extends EventEmitter {
@@ -200,12 +200,13 @@ class MarketClassifier extends EventEmitter {
    */
   logClassification(classification) {
     const istTime = getISTTime();
-    const { type, strategy, confidence, momentum, askToBidRatio, totalBidVolume } = classification;
-    
+    const { type, strategy, confidence, momentum, askToBidRatio, totalBidVolume, currentPrice, symbol } = classification;
+
     console.log(`🧠 MARKET CLASSIFICATION [${istTime}]`);
     console.log(`   🎯 Signal: ${type}`);
     console.log(`   📈 Strategy: ${strategy} (${confidence} confidence)`);
-    console.log(`   📊 Ratio: ${askToBidRatio.toFixed(2)}x | Volume: ${totalBidVolume.toFixed(0)} | Momentum: ${momentum.toFixed(2)}%`);
+    console.log(`   💰 Price: ${formatPriceWithSymbol(currentPrice)} (${symbol || 'UNKNOWN'})`);
+    console.log(`   📊 Ratio: ${askToBidRatio.toFixed(2)}x | Volume: ${totalBidVolume.toFixed(0)} | Momentum: ${momentum.toFixed(3)}%`);
     console.log(`   🔬 Phenomenon: ${classification.phenomenon}`);
     console.log(`   💡 Expected: ${classification.classification.expectedOutcome}`);
   }

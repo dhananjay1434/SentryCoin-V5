@@ -9,7 +9,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { getISTTime, generateSignalId } from '../utils/index.js';
+import { getISTTime, generateSignalId, formatPrice, formatPriceWithSymbol } from '../utils/index.js';
 import cloudStorage from '../services/cloud-storage.js';
 
 class SqueezeTrader extends EventEmitter {
@@ -59,8 +59,8 @@ class SqueezeTrader extends EventEmitter {
     
     const istTime = getISTTime();
     console.log(`🔄 ABSORPTION SQUEEZE SIGNAL RECEIVED [${istTime}]`);
-    console.log(`   📊 ${signal.symbol}: $${signal.currentPrice.toFixed(6)}`);
-    console.log(`   📈 Momentum: ${signal.momentum.toFixed(2)}% (${signal.classification.momentum})`);
+    console.log(`   📊 ${signal.symbol}: ${formatPriceWithSymbol(signal.currentPrice)}`);
+    console.log(`   📈 Momentum: ${signal.momentum.toFixed(3)}% (${signal.classification.momentum})`);
     console.log(`   ⚡ Ratio: ${signal.askToBidRatio.toFixed(2)}x | Liquidity: ${signal.totalBidVolume.toFixed(0)}`);
     console.log(`   🎯 Expected: ${signal.classification.expectedOutcome}`);
     
@@ -86,9 +86,9 @@ class SqueezeTrader extends EventEmitter {
         this.stats.positionsOpened++;
 
         console.log(`📈 LONG POSITION OPENED: ${position.id}`);
-        console.log(`   💰 Size: $${position.size} at $${position.entryPrice.toFixed(6)}`);
-        console.log(`   🛑 Stop Loss: $${position.stopLoss.toFixed(6)} (-${this.stopLossPercent}%)`);
-        console.log(`   🎯 Take Profit: $${position.takeProfit.toFixed(6)} (+${this.takeProfitPercent}%)`);
+        console.log(`   💰 Size: $${position.size} at ${formatPriceWithSymbol(position.entryPrice)}`);
+        console.log(`   🛑 Stop Loss: ${formatPriceWithSymbol(position.stopLoss)} (-${this.stopLossPercent}%)`);
+        console.log(`   🎯 Take Profit: ${formatPriceWithSymbol(position.takeProfit)} (+${this.takeProfitPercent}%)`);
         console.log(`   ⏰ Time Exit: ${this.timeBasedExit}s`);
 
         // Emit event for reporter
@@ -241,8 +241,8 @@ class SqueezeTrader extends EventEmitter {
 
     console.log(`🏁 SQUEEZE POSITION CLOSED: ${position.id}`);
     console.log(`   📊 Reason: ${reason}`);
-    console.log(`   💰 P&L: $${position.realizedPnL.toFixed(2)}`);
-    console.log(`   📈 Return: ${((position.realizedPnL / position.size) * 100).toFixed(2)}%`);
+    console.log(`   💰 P&L: $${position.realizedPnL.toFixed(6)}`);
+    console.log(`   📈 Return: ${((position.realizedPnL / position.size) * 100).toFixed(4)}%`);
     console.log(`   ⏰ Hold Time: ${Math.floor(position.holdTime / 1000)}s`);
 
     // Emit event for reporter
@@ -342,7 +342,7 @@ class SqueezeTrader extends EventEmitter {
 
       if (exitReason) {
         await this.closePosition(position, exitReason, currentPrice);
-        console.log(`🔄 Squeeze position closed: ${exitReason} at $${currentPrice} (held ${Math.floor(positionAge)}s)`);
+        console.log(`🔄 Squeeze position closed: ${exitReason} at ${formatPriceWithSymbol(currentPrice)} (held ${Math.floor(positionAge)}s)`);
       }
     } catch (error) {
       console.error(`❌ Error checking exit conditions for position ${position.id}:`, error.message);

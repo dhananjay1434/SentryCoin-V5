@@ -14,7 +14,7 @@ import TrifectaTrader from '../strategies/trifecta-trader.js';
 import SqueezeTrader from '../strategies/squeeze-trader.js';
 import DetailedReporter from '../reporting/detailed-reporter.js';
 import cloudStorage from '../services/cloud-storage.js';
-import { getISTTime } from '../utils/index.js';
+import { getISTTime, formatPrice, formatPriceWithSymbol } from '../utils/index.js';
 
 class SentryCoinEngine {
   constructor() {
@@ -225,7 +225,7 @@ class SentryCoinEngine {
    */
   logPeriodicUpdate(ratio, bidVolume, askVolume, price, momentum) {
     const istTime = getISTTime();
-    console.log(`📊 [${istTime}] Ratio: ${ratio.toFixed(2)}x | Price: $${price.toFixed(6)} | Momentum: ${momentum.toFixed(2)}%`);
+    console.log(`📊 [${istTime}] Ratio: ${ratio.toFixed(2)}x | Price: ${formatPriceWithSymbol(price)} | Momentum: ${momentum.toFixed(3)}%`);
     console.log(`   💰 Bid: ${bidVolume.toFixed(0)} | Ask: ${askVolume.toFixed(0)} | Signals: T:${this.stats.trifectaSignals} S:${this.stats.squeezeSignals}`);
   }
 

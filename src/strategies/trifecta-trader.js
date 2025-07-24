@@ -9,7 +9,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { getISTTime, generateSignalId } from '../utils/index.js';
+import { getISTTime, generateSignalId, formatPrice, formatPriceWithSymbol } from '../utils/index.js';
 import cloudStorage from '../services/cloud-storage.js';
 import FlashCrashAlerter from '../services/alerter.js';
 
@@ -58,8 +58,8 @@ class TrifectaTrader extends EventEmitter {
     
     const istTime = getISTTime();
     console.log(`🚨 TRIFECTA CONVICTION SIGNAL RECEIVED [${istTime}]`);
-    console.log(`   📊 ${signal.symbol}: $${signal.currentPrice.toFixed(6)}`);
-    console.log(`   📈 Momentum: ${signal.momentum.toFixed(2)}% (Strong Negative)`);
+    console.log(`   📊 ${signal.symbol}: ${formatPriceWithSymbol(signal.currentPrice)}`);
+    console.log(`   📈 Momentum: ${signal.momentum.toFixed(3)}% (Strong Negative)`);
     console.log(`   ⚡ Ratio: ${signal.askToBidRatio.toFixed(2)}x | Liquidity: ${signal.totalBidVolume.toFixed(0)}`);
     
     if (!this.enabled) {
@@ -87,9 +87,9 @@ class TrifectaTrader extends EventEmitter {
         this.stats.positionsOpened++;
 
         console.log(`📉 SHORT POSITION OPENED: ${position.id}`);
-        console.log(`   💰 Size: $${position.size} at $${position.entryPrice.toFixed(6)}`);
-        console.log(`   🛑 Stop Loss: $${position.stopLoss.toFixed(6)} (+${this.stopLossPercent}%)`);
-        console.log(`   🎯 Take Profit: $${position.takeProfit.toFixed(6)} (-${this.takeProfitPercent}%)`);
+        console.log(`   💰 Size: $${position.size} at ${formatPriceWithSymbol(position.entryPrice)}`);
+        console.log(`   🛑 Stop Loss: ${formatPriceWithSymbol(position.stopLoss)} (+${this.stopLossPercent}%)`);
+        console.log(`   🎯 Take Profit: ${formatPriceWithSymbol(position.takeProfit)} (-${this.takeProfitPercent}%)`);
 
         // Emit event for reporter
         this.emit('positionOpened', position);
@@ -206,8 +206,8 @@ class TrifectaTrader extends EventEmitter {
 
     console.log(`🏁 POSITION CLOSED: ${position.id}`);
     console.log(`   📊 Reason: ${reason}`);
-    console.log(`   💰 P&L: $${position.realizedPnL.toFixed(2)}`);
-    console.log(`   📈 Return: ${((position.realizedPnL / position.size) * 100).toFixed(2)}%`);
+    console.log(`   💰 P&L: $${position.realizedPnL.toFixed(6)}`);
+    console.log(`   📈 Return: ${((position.realizedPnL / position.size) * 100).toFixed(4)}%`);
 
     // Emit event for reporter
     this.emit('positionClosed', position);
@@ -320,7 +320,7 @@ class TrifectaTrader extends EventEmitter {
 
       if (exitReason) {
         await this.closePosition(position, exitReason, currentPrice);
-        console.log(`🎯 Trifecta position closed: ${exitReason} at $${currentPrice}`);
+        console.log(`🎯 Trifecta position closed: ${exitReason} at ${formatPriceWithSymbol(currentPrice)}`);
       }
     } catch (error) {
       console.error(`❌ Error checking exit conditions for position ${position.id}:`, error.message);
