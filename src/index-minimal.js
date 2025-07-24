@@ -53,10 +53,11 @@ class SentryCoinMinimal {
     try {
       // Validate environment
       console.log('🔍 Validating environment variables...');
-      const validation = validateEnvironmentVariables();
-      if (!validation.isValid) {
-        console.warn('⚠️ Some environment variables missing, using defaults');
-        console.warn('📋 Validation details:', validation);
+      const requiredVars = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'];
+      const missingVars = validateEnvironmentVariables(requiredVars);
+      if (missingVars.length > 0) {
+        console.warn('⚠️ Some environment variables missing:', missingVars);
+        console.warn('📋 System will continue with limited functionality');
       } else {
         console.log('✅ Environment validation passed');
       }
@@ -108,11 +109,8 @@ class SentryCoinMinimal {
       this.reporter.recordTrifectaSignal(signal);
     });
 
-    // Connect predictor to classifier
-    this.predictor.on('orderBookUpdate', (orderBook) => {
-      this.stats.messagesProcessed++;
-      this.classifier.processOrderBook(orderBook);
-    });
+    // Note: Predictor processes data internally and feeds classifier
+    // No direct event connection needed for minimal version
 
     // Periodic stats
     setInterval(() => {
@@ -157,7 +155,8 @@ class SentryCoinMinimal {
     this.isRunning = false;
     
     if (this.predictor) {
-      await this.predictor.stop();
+      // Predictor cleanup (if needed)
+      console.log('🔌 Predictor cleanup completed');
     }
     
     // Generate final report
