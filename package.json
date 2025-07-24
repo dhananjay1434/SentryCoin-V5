@@ -1,6 +1,6 @@
 {
   "name": "sentrycoin-flash-crash-predictor",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "SentryCoin v4.0 - Dual-Strategy Market Classification Engine with Detailed Reporting",
   "main": "src/index-v4.js",
   "type": "module",
