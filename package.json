@@ -1,11 +1,12 @@
 {
   "name": "sentrycoin-flash-crash-predictor",
-  "version": "1.0.0",
-  "description": "SentryCoin Flash Crash Predictor - Real-time order book imbalance detection engine",
-  "main": "src/index.js",
+  "version": "4.0.0",
+  "description": "SentryCoin v4.0 - Dual-Strategy Market Classification Engine with Detailed Reporting",
+  "main": "src/index-v4.js",
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node src/index-v4.js",
+    "start:v3": "node src/index.js",
     "start:v4": "node src/index-v4.js",
     "start:multi": "node src/multi-symbol-predictor.js",
     "start:trifecta": "ALGORITHM_VERSION=v3.0 ENABLE_TRIFECTA=true node src/index.js",
