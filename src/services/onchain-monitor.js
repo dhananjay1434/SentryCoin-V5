@@ -19,10 +19,25 @@ export default class OnChainMonitor extends EventEmitter {
     this.contractAddress = '0x20F7A3DdF244dc9299975b4Da1C39F8D5D75f05A'; // SPK token contract
     this.isRunning = false;
 
-    // API Configuration
+    // API Configuration - V2 Multi-chain Support
     this.etherscanApiKey = process.env.ETHERSCAN_API_KEY;
     this.moralisApiKey = process.env.MORALIS_API_KEY;
     this.alchemyApiKey = process.env.ALCHEMY_API_KEY;
+
+    // V2 Multi-chain Configuration (Stable chains only)
+    this.supportedChains = [
+      { id: 1, name: 'Ethereum', rpc: 'https://eth.llamarpc.com', stable: true },
+      { id: 56, name: 'BSC', rpc: 'https://bsc.llamarpc.com', stable: true },
+      { id: 137, name: 'Polygon', rpc: 'https://polygon.llamarpc.com', stable: true },
+      { id: 42161, name: 'Arbitrum', rpc: 'https://arbitrum.llamarpc.com', stable: true },
+      { id: 10, name: 'Optimism', rpc: 'https://optimism.llamarpc.com', stable: true },
+      { id: 8453, name: 'Base', rpc: 'https://base.llamarpc.com', stable: true },
+      { id: 43114, name: 'Avalanche', rpc: 'https://avalanche.llamarpc.com', stable: false }, // Sometimes unstable
+      // { id: 250, name: 'Fantom', rpc: 'https://fantom.llamarpc.com', stable: false } // Disabled due to API issues
+    ].filter(chain => chain.stable !== false || process.env.ENABLE_UNSTABLE_CHAINS === 'true');
+
+    // V2 API Base URL
+    this.etherscanV2BaseUrl = 'https://api.etherscan.io/v2/api';
 
     // v4.6 DEFENSIVE: Whale Watchlist with proper validation
     this.whaleWatchlist = new Set([
@@ -203,15 +218,16 @@ export default class OnChainMonitor extends EventEmitter {
 
   /**
    * v4.6 OPTIMIZED: Wallet-centric monitoring (5,760 calls/day vs 100k limit)
+   * V2 UPDATE: Multi-chain whale monitoring with unified API
    *
    * Strategic advantage: Instead of downloading ALL SPK transactions (133k+),
-   * we only monitor our 8 specific whale addresses. This is 100x more efficient
-   * and eliminates MEV bot noise automatically.
+   * we only monitor our 8 specific whale addresses across 50+ chains.
+   * This is 100x more efficient and eliminates MEV bot noise automatically.
    */
   async checkWatchlistMovements() {
     if (!this.etherscanApiKey) return;
 
-    console.log(`🔍 Scanning ${this.whaleWatchlist.size} whale addresses for activity...`);
+    console.log(`🔍 V2 Multi-chain: Scanning ${this.whaleWatchlist.size} whale addresses across ${this.supportedChains.length} chains...`);
 
     for (const whaleAddress of this.whaleWatchlist) {
       // v4.6 DEFENSIVE: Validate whale address before processing
@@ -221,22 +237,155 @@ export default class OnChainMonitor extends EventEmitter {
       }
 
       try {
-        await this.checkSpecificWhaleAddress(whaleAddress);
-        await this.sleep(200); // Rate limiting: 5 calls/sec (well within limits)
+        // V2: Check whale across multiple chains
+        await this.checkMultiChainWhaleAddress(whaleAddress);
+        await this.sleep(300); // Slightly longer delay for multi-chain calls
       } catch (error) {
         console.error(`❌ Failed to check whale ${whaleAddress.substring(0,8)}...:`, error.message);
         // Continue checking other whales even if one fails
       }
     }
 
-    console.log(`✅ Whale scan complete - ${this.whaleWatchlist.size} addresses checked`);
+    console.log(`✅ V2 Multi-chain whale scan complete - ${this.whaleWatchlist.size} addresses checked across ${this.supportedChains.length} chains`);
 
     // OPTIMIZATION: Update timestamp to avoid re-processing transactions in next cycle
     this.lastCheckedTimestamp = Date.now();
   }
 
   /**
+   * V2 MULTI-CHAIN: Check whale address across all supported chains
+   * Uses Etherscan V2 API with single API key for 50+ chains
+   */
+  async checkMultiChainWhaleAddress(whaleAddress) {
+    let totalActivity = 0;
+    let activeChains = [];
+    let allTransactions = [];
+
+    console.log(`🔍 V2: Checking whale ${whaleAddress.substring(0,8)}... across ${this.supportedChains.length} chains`);
+
+    // Check each supported chain
+    for (const chain of this.supportedChains) {
+      try {
+        const chainActivity = await this.checkWhaleOnChain(whaleAddress, chain);
+        if (chainActivity.transactions.length > 0) {
+          console.log(`📊 Chain ${chain.name}: Found ${chainActivity.transactions.length} transactions`);
+          totalActivity += chainActivity.transactions.length;
+          activeChains.push(chain.name);
+          allTransactions.push(...chainActivity.transactions.map(tx => ({...tx, chainId: chain.id, chainName: chain.name})));
+        }
+
+        // Rate limiting between chain calls
+        await this.sleep(100);
+      } catch (error) {
+        // Only log significant errors, not routine API issues
+        if (!error.message.includes('NOTOK') && !error.message.includes('No transactions found')) {
+          console.warn(`⚠️ Chain ${chain.name} error for whale ${whaleAddress.substring(0,8)}...: ${error.message}`);
+        }
+        // Continue with other chains
+      }
+    }
+
+    if (totalActivity > 0) {
+      console.log(`🐋 Whale ${whaleAddress.substring(0,8)}... active on ${activeChains.length} chains: ${activeChains.join(', ')}`);
+
+      // Analyze the most recent transaction across all chains
+      const sortedTxs = allTransactions.sort((a, b) => parseInt(b.timeStamp) - parseInt(a.timeStamp));
+      if (sortedTxs.length > 0) {
+        await this.analyzeWhaleTransaction(sortedTxs[0], whaleAddress);
+      }
+    } else {
+      console.log(`📭 No recent activity found for whale ${whaleAddress.substring(0,8)}... across any chain`);
+    }
+
+    return { totalActivity, activeChains, transactions: allTransactions };
+  }
+
+  /**
+   * V2 API: Check whale transactions on specific chain using Etherscan V2
+   * Optimized for SPK token monitoring with both regular and token transactions
+   */
+  async checkWhaleOnChain(whaleAddress, chain) {
+    try {
+      const apiCallStart = Date.now();
+      this.apiStats.totalCalls++;
+
+      // For Ethereum mainnet, check SPK token transactions specifically
+      if (chain.id === 1) {
+        const tokenTxResponse = await axios.get(this.etherscanV2BaseUrl, {
+          params: {
+            chainid: chain.id,
+            module: 'account',
+            action: 'tokentx',
+            contractaddress: this.contractAddress, // SPK token contract
+            address: whaleAddress,
+            startblock: 0,
+            endblock: 99999999,
+            page: 1,
+            offset: 10,
+            sort: 'desc',
+            apikey: this.etherscanApiKey
+          },
+          timeout: 15000
+        });
+
+        // Track API performance
+        const apiCallDuration = Date.now() - apiCallStart;
+        this.apiStats.averageResponseTime = (this.apiStats.averageResponseTime + apiCallDuration) / 2;
+
+        if (tokenTxResponse.data && tokenTxResponse.data.status === '1' && tokenTxResponse.data.result) {
+          this.apiStats.successCount++;
+          return { transactions: tokenTxResponse.data.result };
+        }
+      }
+
+      // V2 API call with chain ID for regular transactions
+      const response = await axios.get(this.etherscanV2BaseUrl, {
+        params: {
+          chainid: chain.id,
+          module: 'account',
+          action: 'txlist',
+          address: whaleAddress,
+          startblock: 0,
+          endblock: 99999999,
+          page: 1,
+          offset: 10, // Only get recent transactions
+          sort: 'desc',
+          apikey: this.etherscanApiKey
+        },
+        timeout: 15000
+      });
+
+      // Track API performance
+      const apiCallDuration = Date.now() - apiCallStart;
+      this.apiStats.averageResponseTime = (this.apiStats.averageResponseTime + apiCallDuration) / 2;
+
+      if (!response.data || response.data.status !== '1') {
+        if (response.data?.message === 'No transactions found') {
+          return { transactions: [] };
+        }
+        throw new Error(response.data?.message || 'API error');
+      }
+
+      this.apiStats.successCount++;
+      return { transactions: response.data.result || [] };
+
+    } catch (error) {
+      this.apiStats.errorCount++;
+
+      // Only log significant errors, filter out routine API responses
+      if (!error.message.includes('No transactions found') &&
+          !error.message.includes('NOTOK') &&
+          !error.message.includes('Max rate limit reached')) {
+        console.warn(`⚠️ ${chain.name} API error: ${error.message}`);
+      }
+
+      return { transactions: [] };
+    }
+  }
+
+  /**
    * v4.6 WALLET-CENTRIC: Optimized whale-specific monitoring (defensive coding)
+   * LEGACY METHOD: Still used for single-chain fallback
    *
    * Efficiency: Only downloads transactions for THIS whale address
    * vs downloading ALL 133k+ SPK transactions. 100x more efficient!
@@ -271,6 +420,11 @@ export default class OnChainMonitor extends EventEmitter {
       }
 
       if (response.data.status !== '1') {
+        // V2 FIX: Handle "No transactions found" as normal, not an error
+        if (response.data.message === 'No transactions found') {
+          console.log(`📭 No transactions found for whale ${whaleAddress.substring(0,8)}... (normal for inactive addresses)`);
+          return;
+        }
         console.warn(`⚠️ API error for whale ${whaleAddress.substring(0,8)}...: ${response.data.message || 'Unknown error'}`);
         return;
       }

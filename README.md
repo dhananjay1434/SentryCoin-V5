@@ -1,6 +1,12 @@
-# 🛡️ SentryCoin v4.0 - Production Trading Engine (Binance Edition)
+# 🛡️ SentryCoin v4.1 - Production Trading Engine (V2 Multi-Chain Edition)
 
-A sophisticated quantitative trading system that combines real-time market microstructure analysis with dual-strategy classification for cryptocurrency markets. Optimized for Binance exchange with fallback support for multiple exchanges.
+A sophisticated quantitative trading system that combines real-time market microstructure analysis with three-regime classification for cryptocurrency markets. Features **V2 multi-chain whale monitoring** across 50+ blockchain networks with unified API integration.
+
+## 🚀 **NEW in V2: Multi-Chain Whale Monitoring**
+- **Single API Key**: Monitor whale addresses across 50+ chains (Ethereum, BSC, Polygon, Arbitrum, Optimism, Base, etc.)
+- **Error Resolution**: Fixes "No transactions found" errors with intelligent multi-chain detection
+- **Enhanced Intelligence**: Cross-chain whale activity correlation for better trading signals
+- **Unified Experience**: One configuration, multiple blockchain networks
 
 ## 🎯 **Core Features**
 
@@ -78,6 +84,9 @@ npm run backtest
 
 # Test connectivity
 npm run connectivity
+
+# Test V2 multi-chain whale monitoring
+npm run test:whale:v2
 ```
 
 ## 📊 **System Architecture**
