@@ -69,38 +69,57 @@ export default class DerivativesMonitor extends EventEmitter {
    */
   async start() {
     this.logger?.info('derivatives_monitoring_start', 'Starting real-time derivatives monitoring');
-    
+
     try {
+      let connectionsAttempted = 0;
+
       // Connect to Bybit if configured
       if (this.bybitConfig.apiKey) {
-        await this.connectBybit();
+        try {
+          await this.connectBybit();
+          connectionsAttempted++;
+        } catch (error) {
+          this.logger?.warn('bybit_connection_failed', error.message);
+        }
       }
-      
+
       // Connect to Binance public streams
-      await this.connectBinance();
-      
-      if (this.connections.size === 0) {
-        throw new Error('Failed to connect to any derivatives exchanges');
+      try {
+        await this.connectBinance();
+        connectionsAttempted++;
+      } catch (error) {
+        this.logger?.warn('binance_connection_failed', error.message);
       }
-      
+
+      if (this.connections.size === 0) {
+        if (connectionsAttempted > 0) {
+          this.logger?.warn('derivatives_monitoring_limited', 'No derivatives connections established - running in limited mode');
+        } else {
+          this.logger?.info('derivatives_monitoring_disabled', 'No derivatives providers configured');
+        }
+        return true; // Don't fail the entire system
+      }
+
       this.isStreaming = true;
       this.stats.startTime = Date.now();
-      
+
       // Start periodic analysis
       this.startPeriodicAnalysis();
-      
+
       this.logger?.info('derivatives_monitoring_active', {
         activeConnections: this.connections.size,
         symbol: this.symbol
       });
-      
+
       return true;
-      
+
     } catch (error) {
       this.logger?.error('derivatives_monitoring_failed', {
         error: error.message
       });
-      return false;
+      // Don't fail the entire system
+      this.logger?.info('derivatives_monitoring_fallback', 'Continuing without real-time derivatives monitoring');
+      return true;
     }
   }
 

@@ -12,10 +12,11 @@ import axios from 'axios';
 export default class MempoolStreamer extends EventEmitter {
   constructor(config = {}) {
     super();
-    
+
     this.symbol = config.symbol || 'ETH';
     this.logger = config.logger;
     this.providers = config.providers || {};
+    this.enableRealTimeFeeds = config.enableRealTimeFeeds !== false;
     
     // Whale watchlist
     this.whaleWatchlist = new Set(this.loadWhaleWatchlist());
@@ -53,33 +54,56 @@ export default class MempoolStreamer extends EventEmitter {
    * Start mempool streaming
    */
   async start() {
+    // Check if real-time feeds are enabled and providers are available
+    if (!this.enableRealTimeFeeds) {
+      this.logger?.info('mempool_streaming_disabled', 'Real-time feeds disabled by configuration');
+      return true; // Return success but don't start streaming
+    }
+
+    const hasProviders = Object.values(this.providers).some(p => p.enabled);
+    if (!hasProviders) {
+      this.logger?.warn('mempool_streaming_no_providers', 'No mempool providers configured - running in limited mode');
+      return true; // Return success but don't start streaming
+    }
+
     this.logger?.info('mempool_streaming_start', 'Starting real-time mempool monitoring');
-    
+
     try {
       // Try Blocknative first (primary provider)
       if (this.providers.blocknative?.enabled) {
-        await this.connectBlocknative();
+        try {
+          await this.connectBlocknative();
+        } catch (error) {
+          this.logger?.warn('blocknative_connection_failed', error.message);
+        }
       }
-      
+
       // Try Alchemy as backup
       if (this.providers.alchemy?.enabled && !this.isStreaming) {
-        await this.connectAlchemy();
+        try {
+          await this.connectAlchemy();
+        } catch (error) {
+          this.logger?.warn('alchemy_connection_failed', error.message);
+        }
       }
-      
+
       if (!this.isStreaming) {
-        throw new Error('Failed to connect to any mempool provider');
+        this.logger?.warn('mempool_streaming_limited', 'No mempool providers connected - running in limited mode');
+        return true; // Don't fail the entire system
       }
-      
+
       this.stats.startTime = Date.now();
       this.logger?.info('mempool_streaming_active', 'Whale intent detection enabled');
-      
+
       return true;
-      
+
     } catch (error) {
       this.logger?.error('mempool_streaming_failed', {
         error: error.message
       });
-      return false;
+      // Don't fail the entire system if mempool streaming fails
+      this.logger?.info('mempool_streaming_fallback', 'Continuing without real-time mempool monitoring');
+      return true;
     }
   }
 

@@ -95,16 +95,28 @@ export default class PhoenixEngine extends EventEmitter {
       this.logger.info('mandate_1_ready', 'Dynamic Liquidity Analyzer operational');
       
       // Initialize Mempool Streamer (Mandate 2)
+      const mempoolProviders = {
+        blocknative: { enabled: !!process.env.BLOCKNATIVE_API_KEY },
+        alchemy: { enabled: !!process.env.ALCHEMY_API_KEY }
+      };
+
+      // Check if any mempool providers are available
+      const hasProviders = Object.values(mempoolProviders).some(p => p.enabled);
+
       this.mempoolStreamer = new MempoolStreamer({
         symbol: this.config.symbol.replace('USDT', ''),
         logger: this.logger,
-        providers: {
-          blocknative: { enabled: !!process.env.BLOCKNATIVE_API_KEY },
-          alchemy: { enabled: !!process.env.ALCHEMY_API_KEY }
-        }
+        providers: mempoolProviders,
+        enableRealTimeFeeds: hasProviders && this.config.enableRealTimeFeeds
       });
-      this.systemHealth.mempoolStreamer = 'ONLINE';
-      this.logger.info('mandate_2_ready', 'Event-driven mempool streaming operational');
+
+      this.systemHealth.mempoolStreamer = hasProviders ? 'ONLINE' : 'LIMITED';
+
+      if (hasProviders) {
+        this.logger.info('mandate_2_ready', 'Event-driven mempool streaming operational');
+      } else {
+        this.logger.warn('mandate_2_limited', 'Mempool streaming disabled - no API providers configured');
+      }
       
       // Initialize Derivatives Monitor (Mandate 4)
       this.derivativesMonitor = new DerivativesMonitor({
@@ -231,10 +243,19 @@ export default class PhoenixEngine extends EventEmitter {
     try {
       // Start all components
       if (this.config.enableRealTimeFeeds) {
-        await this.mempoolStreamer.start();
-        await this.derivativesMonitor.start();
+        const mempoolStarted = await this.mempoolStreamer.start();
+        const derivativesStarted = await this.derivativesMonitor.start();
+
+        if (!mempoolStarted) {
+          this.logger.warn('mempool_start_failed', 'Mempool streaming failed to start');
+        }
+        if (!derivativesStarted) {
+          this.logger.warn('derivatives_start_failed', 'Derivatives monitoring failed to start');
+        }
+      } else {
+        this.logger.info('realtime_feeds_disabled', 'Real-time feeds disabled by configuration');
       }
-      
+
       await this.taskScheduler.start();
       
       // Schedule periodic tasks
