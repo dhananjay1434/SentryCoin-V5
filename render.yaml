@@ -1,16 +1,16 @@
 # ===================================================================
-# SentryCoin v5.1 "Apex Predator" - Render.com Production Deployment
-# OPERATION UNWIND - 24/7 Cloud Deployment Configuration
+# SentryCoin v6.0 "Phoenix" - Render.com Production Deployment
+# OPERATION CHIMERA - 24/7 Cloud Deployment Configuration
 # ===================================================================
 
 services:
   - type: web
-    name: sentrycoin-v5-apex-predator
+    name: sentrycoin-v6-phoenix-engine
     env: node
     plan: starter  # Upgraded from free for better performance
     region: oregon  # US West for optimal latency
     buildCommand: npm install --production
-    startCommand: npm start
+    startCommand: node phoenix-production.js
     healthCheckPath: /health
 
     # Auto-scaling configuration

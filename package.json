@@ -2,7 +2,7 @@
   "name": "sentrycoin-trading-engine",
   "version": "6.0.0",
   "description": "SentryCoin v6.0 'Phoenix' - Complete Re-Architecture with All Red Team Mandates Resolved",
-  "main": "src/index.js",
+  "main": "phoenix-production.js",
   "type": "module",
   "scripts": {
     "start": "node phoenix-production.js",
