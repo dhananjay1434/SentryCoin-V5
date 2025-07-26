@@ -39,16 +39,16 @@ export default class OnChainMonitor extends EventEmitter {
     // V2 API Base URL
     this.etherscanV2BaseUrl = 'https://api.etherscan.io/v2/api';
 
-    // v4.6 DEFENSIVE: Whale Watchlist with proper validation
+    // v5.1 ETH_UNWIND: Ethereum-focused whale watchlist with proper validation
     this.whaleWatchlist = new Set([
-      process.env.WHALE_ADDRESS_1,
-      process.env.WHALE_ADDRESS_2,
-      process.env.WHALE_ADDRESS_3,
-      process.env.WHALE_ADDRESS_4,
-      process.env.WHALE_ADDRESS_5,
-      process.env.WHALE_ADDRESS_6,
-      process.env.WHALE_ADDRESS_7,
-      process.env.WHALE_ADDRESS_8,
+      process.env.ETH_WHALE_1,
+      process.env.ETH_WHALE_2,
+      process.env.ETH_WHALE_3,
+      process.env.ETH_WHALE_4,
+      process.env.ETH_WHALE_5,
+      process.env.ETH_WHALE_6,
+      process.env.ETH_WHALE_7,
+      process.env.ETH_WHALE_8,
     ]
     .filter(addr => addr && addr !== 'undefined' && addr.length === 42 && addr.startsWith('0x'))
     .map(addr => addr.toLowerCase()));
