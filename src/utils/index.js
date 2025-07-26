@@ -74,6 +74,21 @@ export function parseBoolEnv(key, defaultValue) {
 }
 
 /**
+ * Validate required environment variables
+ */
+export function validateEnvironmentVariables(requiredVars) {
+  const missing = [];
+
+  for (const varName of requiredVars) {
+    if (!process.env[varName] || process.env[varName].trim() === '') {
+      missing.push(varName);
+    }
+  }
+
+  return missing;
+}
+
+/**
  * Get risk level based on ask/bid ratio
  */
 export function getRiskLevel(ratio) {
