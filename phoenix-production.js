@@ -10,6 +10,7 @@
  */
 
 import dotenv from 'dotenv';
+import express from 'express';
 import PhoenixEngine from './src/phoenix/engine.js';
 
 // Load environment configuration
@@ -18,8 +19,11 @@ dotenv.config({ path: '.env.production' });
 class PhoenixProductionLauncher {
   constructor() {
     this.phoenixEngine = null;
+    this.expressApp = null;
+    this.server = null;
     this.isProduction = process.env.NODE_ENV === 'production';
-    
+    this.port = process.env.PORT || 10000;
+
     console.log('🔥 PHOENIX ENGINE v6.0 - PRODUCTION LAUNCHER');
     console.log('🛡️ OPERATION CHIMERA - CLEAN DEPLOYMENT');
     console.log('⚡ All components reorganized and properly connected\n');
@@ -61,6 +65,101 @@ class PhoenixProductionLauncher {
     if (!process.env.BYBIT_API_KEY) {
       console.log('⚠️ Bybit API key not configured - derivatives monitoring limited');
     }
+  }
+
+  /**
+   * Setup Express server for Render port binding
+   */
+  setupExpressServer() {
+    console.log('\n🌐 Setting up Express server for Render...');
+
+    this.expressApp = express();
+    this.expressApp.use(express.json());
+
+    // Health check endpoint (required by Render)
+    this.expressApp.get('/health', (req, res) => {
+      const metrics = this.phoenixEngine ? this.phoenixEngine.getMetrics() : null;
+      res.json({
+        status: 'ok',
+        service: 'sentrycoin-v6-phoenix-engine',
+        version: '6.0.0',
+        timestamp: new Date().toISOString(),
+        phoenix: {
+          running: this.phoenixEngine?.isRunning || false,
+          mandates: metrics?.mandatesImplemented || 0,
+          viability: metrics?.strategicViability || 'INITIALIZING'
+        }
+      });
+    });
+
+    // Root endpoint
+    this.expressApp.get('/', (req, res) => {
+      const metrics = this.phoenixEngine ? this.phoenixEngine.getMetrics() : null;
+      res.json({
+        service: 'SentryCoin v6.0 Phoenix Engine',
+        version: '6.0.0',
+        status: this.phoenixEngine?.isRunning ? 'operational' : 'initializing',
+        mandates: metrics?.mandatesImplemented || 0,
+        uptime: metrics?.uptime || 0,
+        timestamp: new Date().toISOString(),
+        message: '🔥 Phoenix Engine v6.0 - All Red Team Mandates Resolved'
+      });
+    });
+
+    // System status endpoint
+    this.expressApp.get('/status', (req, res) => {
+      if (!this.phoenixEngine) {
+        return res.status(503).json({
+          error: 'Phoenix Engine not initialized',
+          status: 'initializing'
+        });
+      }
+
+      const metrics = this.phoenixEngine.getMetrics();
+      res.json({
+        ...metrics,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    // Performance metrics endpoint
+    this.expressApp.get('/performance', (req, res) => {
+      if (!this.phoenixEngine) {
+        return res.status(503).json({
+          error: 'Phoenix Engine not initialized'
+        });
+      }
+
+      const metrics = this.phoenixEngine.getMetrics();
+      res.json({
+        performance: metrics.metrics,
+        components: metrics.components,
+        systemHealth: metrics.systemHealth,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    console.log(`✅ Express server configured on port ${this.port}`);
+  }
+
+  /**
+   * Start Express server
+   */
+  async startExpressServer() {
+    return new Promise((resolve, reject) => {
+      this.server = this.expressApp.listen(this.port, (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          console.log(`🌐 Phoenix Engine API server running on port ${this.port}`);
+          console.log(`📡 Endpoints:`);
+          console.log(`   Health: http://localhost:${this.port}/health`);
+          console.log(`   Status: http://localhost:${this.port}/status`);
+          console.log(`   Performance: http://localhost:${this.port}/performance`);
+          resolve();
+        }
+      });
+    });
   }
 
   /**
@@ -170,16 +269,22 @@ class PhoenixProductionLauncher {
   setupGracefulShutdown() {
     const shutdown = async (signal) => {
       console.log(`\n🛑 Received ${signal} - initiating graceful shutdown...`);
-      
+
       try {
         if (this.phoenixEngine) {
           await this.phoenixEngine.shutdown();
           console.log('✅ Phoenix Engine shutdown complete');
         }
-        
-        console.log('🔥 Phoenix Engine shutdown complete');
+
+        if (this.server) {
+          this.server.close(() => {
+            console.log('✅ Express server shutdown complete');
+          });
+        }
+
+        console.log('🔥 Complete system shutdown');
         process.exit(0);
-        
+
       } catch (error) {
         console.error('❌ Error during shutdown:', error.message);
         process.exit(1);
@@ -238,20 +343,26 @@ class PhoenixProductionLauncher {
   async launch() {
     try {
       console.log('🎯 COMMENCING PHOENIX ENGINE v6.0 LAUNCH SEQUENCE\n');
-      
+
       // Step 1: Validate environment
       this.validateEnvironment();
-      
-      // Step 2: Setup graceful shutdown
+
+      // Step 2: Setup Express server (required for Render)
+      this.setupExpressServer();
+
+      // Step 3: Start Express server
+      await this.startExpressServer();
+
+      // Step 4: Setup graceful shutdown
       this.setupGracefulShutdown();
-      
-      // Step 3: Initialize Phoenix Engine
+
+      // Step 5: Initialize Phoenix Engine
       await this.initializePhoenixEngine();
-      
-      // Step 4: Start Phoenix Engine
+
+      // Step 6: Start Phoenix Engine
       await this.startPhoenixEngine();
-      
-      // Step 5: Start health monitoring
+
+      // Step 7: Start health monitoring
       this.startHealthMonitoring();
       
       console.log('\n🎉 PHOENIX ENGINE v6.0: LAUNCH SUCCESSFUL');
