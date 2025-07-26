@@ -82,7 +82,7 @@ services:
 
       # === CASCADE_HUNTER LEGACY SETTINGS ===
       - key: CASCADE_HUNTER_SYMBOL
-        value: SPKUSDT
+        value: ETHUSDT
       - key: CASCADE_TRADING_ENABLED
         value: true
       - key: CASCADE_MAX_POSITION

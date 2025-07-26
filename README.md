@@ -173,8 +173,8 @@ SYMBOL=DOGEUSDT
 DANGER_RATIO=1.8
 COOLDOWN_MINUTES=1
 
-# For realistic testing with SPK/USDT
-SYMBOL=SPKUSDT
+# For Ethereum trading (primary focus)
+SYMBOL=ETHUSDT
 DANGER_RATIO=2.5
 COOLDOWN_MINUTES=5
 ```
@@ -184,8 +184,8 @@ COOLDOWN_MINUTES=5
 ```
 🚨 SENTRYCOIN FLASH CRASH WARNING 🚨
 
-📊 Asset: SPKUSDT
-💰 Current Price: $0.162000
+📊 Asset: ETHUSDT
+💰 Current Price: $3,650.00
 ⚠️ Risk Level: 🔴 EXTREME
 
 📈 Order Book Analysis:

@@ -44,8 +44,8 @@ export const config = {
   // TRADING CONFIGURATION
   // ================================
   trading: {
-    // Primary trading symbol (validated in live event)
-    symbol: process.env.SYMBOL || 'SPKUSDT',
+    // Primary trading symbol (ETHEREUM FOCUSED)
+    symbol: process.env.SYMBOL || 'ETHUSDT',
     
     // Exchange configuration
     exchange: process.env.EXCHANGE || 'binance',
