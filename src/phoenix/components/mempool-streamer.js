@@ -69,22 +69,18 @@ export default class MempoolStreamer extends EventEmitter {
     this.logger?.info('mempool_streaming_start', 'Starting real-time mempool monitoring');
 
     try {
-      // Try Blocknative first (primary provider)
-      if (this.providers.blocknative?.enabled) {
-        try {
-          await this.connectBlocknative();
-        } catch (error) {
-          this.logger?.warn('blocknative_connection_failed', error.message);
-        }
-      }
-
-      // Try Alchemy as backup
-      if (this.providers.alchemy?.enabled && !this.isStreaming) {
+      // Try Alchemy first (primary provider in 2025)
+      if (this.providers.alchemy?.enabled) {
         try {
           await this.connectAlchemy();
         } catch (error) {
           this.logger?.warn('alchemy_connection_failed', error.message);
         }
+      }
+
+      // Blocknative deprecated as of March 2025 - skip connection attempt
+      if (this.providers.blocknative?.enabled) {
+        this.logger?.warn('blocknative_deprecated', 'Blocknative Ethernow service ended March 1, 2025 - using Alchemy instead');
       }
 
       if (!this.isStreaming) {
@@ -115,10 +111,15 @@ export default class MempoolStreamer extends EventEmitter {
     if (!apiKey) {
       throw new Error('Blocknative API key not configured');
     }
-    
+
     return new Promise((resolve, reject) => {
-      const ws = new WebSocket('wss://api.blocknative.com/v0');
-      
+      // Updated Blocknative WebSocket endpoint
+      const ws = new WebSocket('wss://api.blocknative.com/v0', {
+        headers: {
+          'Authorization': apiKey
+        }
+      });
+
       const timeout = setTimeout(() => {
         ws.close();
         reject(new Error('Blocknative connection timeout'));
@@ -126,24 +127,25 @@ export default class MempoolStreamer extends EventEmitter {
       
       ws.on('open', () => {
         clearTimeout(timeout);
-        
-        // Initialize connection
+
+        // Initialize connection with updated format
         ws.send(JSON.stringify({
           categoryCode: 'initialize',
           eventCode: 'checkDappId',
           dappId: apiKey
         }));
-        
-        // Subscribe to whale addresses
+
+        // Subscribe to pending transactions for whale addresses
         ws.send(JSON.stringify({
           categoryCode: 'configs',
           eventCode: 'put',
           config: {
             scope: 'global',
             filters: [{
-              status: 'pending'
-            }],
-            watchAddress: Array.from(this.whaleWatchlist)
+              status: 'pending',
+              from: Array.from(this.whaleWatchlist),
+              to: Array.from(this.whaleWatchlist)
+            }]
           }
         }));
         
@@ -194,14 +196,16 @@ export default class MempoolStreamer extends EventEmitter {
       
       ws.on('open', () => {
         clearTimeout(timeout);
-        
-        // Subscribe to pending transactions
+
+        // Subscribe to pending transactions with full transaction objects
         ws.send(JSON.stringify({
           jsonrpc: '2.0',
           id: 1,
           method: 'eth_subscribe',
-          params: ['newPendingTransactions', true]
+          params: ['newPendingTransactions', true] // true = full transaction objects
         }));
+
+        this.logger?.info('alchemy_mempool_subscribed', 'Subscribed to pending transactions');
         
         this.connections.set('alchemy', ws);
         this.isStreaming = true;

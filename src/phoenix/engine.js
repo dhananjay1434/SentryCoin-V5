@@ -95,9 +95,10 @@ export default class PhoenixEngine extends EventEmitter {
       this.logger.info('mandate_1_ready', 'Dynamic Liquidity Analyzer operational');
       
       // Initialize Mempool Streamer (Mandate 2)
+      // Note: Blocknative Ethernow service ended March 1, 2025
       const mempoolProviders = {
-        blocknative: { enabled: !!process.env.BLOCKNATIVE_API_KEY },
-        alchemy: { enabled: !!process.env.ALCHEMY_API_KEY }
+        alchemy: { enabled: !!process.env.ALCHEMY_API_KEY },
+        blocknative: { enabled: false, deprecated: true } // Deprecated as of March 2025
       };
 
       // Check if any mempool providers are available
