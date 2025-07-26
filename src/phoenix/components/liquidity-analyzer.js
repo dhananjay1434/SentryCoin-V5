@@ -1,8 +1,13 @@
 /**
  * Phoenix v6.0 - Dynamic Liquidity Analyzer (Mandate 1)
- * 
- * Replaces static CASCADE_LIQUIDITY_THRESHOLD with adaptive
- * Dynamic Liquidity Score (DLS) system.
+ *
+ * COMPLETE REPLACEMENT OF STATIC THRESHOLDS
+ *
+ * Implements adaptive Dynamic Liquidity Score (DLS) system that:
+ * - Calculates real-time liquidity percentiles (24h rolling window)
+ * - Adapts to asset-specific liquidity regimes
+ * - Provides predictive liquidity crisis detection
+ * - Eliminates fantasy-land static thresholds
  */
 
 import { EventEmitter } from 'events';
@@ -14,32 +19,46 @@ export default class LiquidityAnalyzer extends EventEmitter {
     this.symbol = config.symbol || 'ETHUSDT';
     this.logger = config.logger;
     
-    // DLS history for percentile calculations
-    this.dlsHistory = [];
-    this.maxHistoryLength = 1440; // 24 hours
-    
-    // Current state
-    this.currentDLS = 0;
-    this.currentPercentile = 50;
-    
-    // Adaptive thresholds
+    // MANDATE 1: ADAPTIVE PERCENTILE-BASED THRESHOLDS
+    // No more static CASCADE_LIQUIDITY_THRESHOLD fantasy numbers
     this.thresholds = {
-      signalValidation: 75,    // 75th percentile for signal validation
-      highConfidence: 90,      // 90th percentile for high confidence
-      lowLiquidityWarning: 25  // 25th percentile for warnings
+      signalValidation: config.signalValidation || 75,    // 75th percentile for signal validation
+      highConfidence: config.highConfidence || 90,       // 90th percentile for high confidence
+      lowLiquidityWarning: config.lowLiquidityWarning || 25,  // 25th percentile for warnings
+      criticalLiquidity: config.criticalLiquidity || 10  // 10th percentile for critical alerts
     };
-    
-    // Performance stats
+
+    // DLS HISTORY FOR REAL-TIME PERCENTILE CALCULATION
+    // 24-hour rolling window at 30-second intervals = 2880 data points
+    this.dlsHistory = [];
+    this.maxHistorySize = 2880;
+
+    // VWAP CALCULATION COMPONENTS (1-hour rolling for density analysis)
+    this.vwapWindow = [];
+    this.maxVwapSize = 120; // 1 hour at 30-second intervals
+
+    // CURRENT LIQUIDITY STATE
+    this.currentDLS = 0;
+    this.dlsPercentile = 0;
+    this.liquidityRegime = 'UNKNOWN'; // CRITICAL, LOW, MEDIUM, HIGH
+
+    // ENHANCED PERFORMANCE METRICS
     this.stats = {
       dlsCalculations: 0,
       signalsValidated: 0,
       signalsRejected: 0,
+      highLiquidityEvents: 0,
+      lowLiquidityWarnings: 0,
+      criticalLiquidityEvents: 0,
+      avgDLS: 0,
       startTime: Date.now()
     };
     
-    this.logger?.info('liquidity_analyzer_init', {
+    this.logger?.info('mandate_1_dynamic_liquidity_analyzer_initialized', {
       symbol: this.symbol,
-      thresholds: this.thresholds
+      thresholds: this.thresholds,
+      mandate: 'MANDATE_1_ACTIVE',
+      description: 'Static CASCADE_LIQUIDITY_THRESHOLD eliminated - Adaptive DLS system operational'
     });
   }
 

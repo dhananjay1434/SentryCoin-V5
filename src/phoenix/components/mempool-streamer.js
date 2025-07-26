@@ -1,8 +1,16 @@
 /**
  * Phoenix v6.0 - Event-Driven Mempool Streamer (Mandate 2)
- * 
- * Real-time whale intent detection through mempool monitoring.
- * Replaces polling-based approach with event-driven streaming.
+ *
+ * COMPLETE REPLACEMENT OF POLLING-BASED WHALE MONITORING
+ *
+ * RED TEAM MANDATE: "Catastrophically latent and functionally useless"
+ * PHOENIX SOLUTION: Real-time mempool firehose with millisecond latency
+ *
+ * - Eliminates polling-based onchain-monitor-v2.js
+ * - Implements WebSocket-based mempool streaming
+ * - Provides EVENT_WHALE_INTENT before transaction confirmation
+ * - Reduces detection latency from minutes to milliseconds
+ * - Multi-provider failover architecture (Alchemy primary, QuickNode backup)
  */
 
 import { EventEmitter } from 'events';

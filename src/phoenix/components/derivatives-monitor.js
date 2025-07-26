@@ -1,8 +1,16 @@
 /**
  * Phoenix v6.0 - Real-Time Derivatives Monitor (Mandate 4)
- * 
- * Persistent WebSocket connections for sub-second derivatives updates.
- * Replaces polling-based approach with real-time streaming.
+ *
+ * SUB-SECOND DERIVATIVES INTELLIGENCE SYSTEM
+ *
+ * RED TEAM MANDATE: "Derivatives intelligence too slow to be tactical"
+ * PHOENIX SOLUTION: WebSocket-based real-time derivatives streaming
+ *
+ * - Eliminates polling-based fetchData() methods
+ * - Implements persistent WebSocket connections to exchange streams
+ * - Provides sub-second Open Interest, funding rate, and mark price updates
+ * - Emits EVENT_DERIVATIVES_UPDATE on every significant change
+ * - Multi-exchange support (Binance Futures, Bybit)
  */
 
 import { EventEmitter } from 'events';

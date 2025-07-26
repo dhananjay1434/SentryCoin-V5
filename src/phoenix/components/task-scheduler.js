@@ -1,8 +1,16 @@
 /**
  * Phoenix v6.0 - Microservice Task Scheduler (Mandate 5)
- * 
- * Distributed worker pool architecture to eliminate I/O contention
- * and single points of failure from monolithic scanning loops.
+ *
+ * DISTRIBUTED WORKER POOL ARCHITECTURE
+ *
+ * RED TEAM MANDATE: "Decompose monolithic scans - eliminate I/O contention"
+ * PHOENIX SOLUTION: Microservice-like task distribution with worker pools
+ *
+ * - Eliminates monolithic 15-second scanning loops
+ * - Implements distributed worker pool for independent task execution
+ * - Prevents I/O contention and single points of failure
+ * - Ensures API call failures don't halt entire intelligence gathering
+ * - Priority-based task queuing with dependency management
  */
 
 import { EventEmitter } from 'events';

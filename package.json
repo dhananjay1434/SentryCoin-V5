@@ -11,6 +11,8 @@
     "legacy": "node src/index.js",
     "test": "node test-phoenix-complete.js",
     "test:apis": "node test-apis-direct.js",
+    "validate:mandates": "node validate-phoenix-mandates.js",
+    "validate:phoenix": "node validate-phoenix-mandates.js",
     "test:legacy": "node tests/unit/core.test.js",
     "test:config": "node tests/config-test.js",
     "test:telegram": "node tests/telegram-test.js",

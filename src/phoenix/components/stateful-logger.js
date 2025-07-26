@@ -1,8 +1,16 @@
 /**
  * Phoenix v6.0 - Stateful Logger (Mandate 3)
- * 
- * Intelligent logging system that eliminates redundant output
- * by maintaining state cache and only logging changes.
+ *
+ * INTELLIGENT STATE-CHANGE-ONLY LOGGING SYSTEM
+ *
+ * RED TEAM MANDATE: "Eliminate repetitive console spam"
+ * PHOENIX SOLUTION: Stateful logging with intelligent noise reduction
+ *
+ * - Maintains internal cache of last logged values
+ * - Only logs when state actually changes
+ * - Eliminates "Saved to memory" and repetitive momentum spam
+ * - Provides structured JSON logging with contextual metadata
+ * - File-based persistence with rotation
  */
 
 import fs from 'fs';

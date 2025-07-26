@@ -2,9 +2,18 @@
 
 /**
  * Phoenix Engine v6.0 - Complete System Test
- * 
- * Comprehensive test suite for the reorganized Phoenix Engine
- * to ensure all components are properly connected and functional.
+ *
+ * RED TEAM MANDATE VALIDATION SUITE
+ *
+ * Comprehensive test suite to validate all 5 Red Team mandates
+ * have been properly implemented and are operationally ready.
+ *
+ * Tests:
+ * - Mandate 1: Dynamic Liquidity Analyzer (Adaptive DLS)
+ * - Mandate 2: Event-Driven Mempool Streamer (Real-time whale detection)
+ * - Mandate 3: Stateful Logger (Intelligent noise reduction)
+ * - Mandate 4: Real-Time Derivatives Monitor (Sub-second updates)
+ * - Mandate 5: Microservice Task Scheduler (Distributed workers)
  */
 
 import dotenv from 'dotenv';
@@ -17,9 +26,10 @@ class PhoenixSystemTester {
     this.testResults = [];
     this.phoenixEngine = null;
     
-    console.log('🧪 PHOENIX ENGINE v6.0 - COMPLETE SYSTEM TEST');
-    console.log('🛡️ Testing reorganized architecture and component integration');
-    console.log('⚡ Validating all 5 Red Team mandates\n');
+    console.log('🧪 PHOENIX ENGINE v6.0 - RED TEAM MANDATE VALIDATION');
+    console.log('🛡️ PROJECT PHOENIX - COMPLETE SYSTEM OVERHAUL TEST');
+    console.log('⚡ Validating all 5 Red Team mandates implementation');
+    console.log('🎯 Target: Transform SVA Score from 1/10 to 9/10\n');
   }
 
   /**
