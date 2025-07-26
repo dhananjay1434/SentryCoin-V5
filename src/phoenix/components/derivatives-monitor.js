@@ -183,7 +183,10 @@ export default class DerivativesMonitor extends EventEmitter {
   }
 
   /**
-   * Connect to Binance Futures WebSocket
+   * MANDATE 4: Connect to Binance Futures WebSocket
+   *
+   * Establishes persistent WebSocket connection for sub-second derivatives
+   * intelligence replacing polling-based fetchData() methods.
    */
   async connectBinance() {
     const symbol = this.symbol.toLowerCase();
@@ -200,7 +203,13 @@ export default class DerivativesMonitor extends EventEmitter {
       ws.on('open', () => {
         clearTimeout(timeout);
         this.connections.set('binance', ws);
-        this.logger?.info('binance_connected', 'Binance futures stream active');
+        this.logger?.info('mandate_4_binance_connected', {
+          provider: 'binance',
+          symbol: this.symbol,
+          mandate: 'MANDATE_4_ACTIVE',
+          latency_target: '<500ms',
+          message: 'Binance futures stream active'
+        });
         resolve();
       });
       
@@ -363,7 +372,10 @@ export default class DerivativesMonitor extends EventEmitter {
   }
 
   /**
-   * Update open interest data
+   * MANDATE 4: Update open interest data with sub-second precision
+   *
+   * Processes real-time Open Interest updates and detects significant
+   * changes for tactical derivatives intelligence.
    */
   updateOpenInterest(newOI, exchange) {
     const previousTotal = this.data.openInterest.total;

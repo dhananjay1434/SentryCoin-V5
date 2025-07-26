@@ -63,47 +63,71 @@ export default class LiquidityAnalyzer extends EventEmitter {
   }
 
   /**
-   * Analyze order book and calculate Dynamic Liquidity Score
+   * MANDATE 1: DYNAMIC LIQUIDITY ANALYZER
+   *
+   * Replaces static CASCADE_LIQUIDITY_THRESHOLD with adaptive DLS system
+   * that calculates percentile-based thresholds for signal validation.
    */
   async analyzeOrderBook(orderBookData) {
     const { bids, asks, timestamp } = orderBookData;
-    
+
     if (!bids || !asks || bids.length === 0 || asks.length === 0) {
       return this.createAnalysisResult(0, 'INVALID_DATA');
     }
-    
+
     try {
-      // Calculate DLS components
+      // MANDATE 1 IMPLEMENTATION: Multi-factor DLS calculation
+
+      // 1. Order Book Depth (raw depth as before)
       const depth = this.calculateDepth(bids, asks);
+
+      // 2. Order Book Density (distribution around mid-price)
       const density = this.calculateDensity(bids, asks);
+
+      // 3. Spread Tightness (bid-ask spread analysis)
       const spread = this.calculateSpreadTightness(bids, asks);
-      const impact = this.estimateMarketImpact(bids, asks, 10000); // $10k order
-      
-      // Calculate composite DLS (0-100)
-      const dls = this.calculateDLS(depth, density, spread, impact);
-      
-      // Update history and percentile
-      this.updateDLSHistory(dls);
-      
+
+      // 4. Market Impact Cost (for $10k order)
+      const impact = this.estimateMarketImpact(bids, asks, 10000);
+
+      // 5. Recent Volume Profile (1-hour rolling VWAP integration)
+      const volumeProfile = this.calculateVolumeProfile(timestamp);
+
+      // Calculate composite DLS (0-100) with volume profile weighting
+      const dls = this.calculateDLS(depth, density, spread, impact, volumeProfile);
+
+      // Update 24-hour rolling history for percentile calculation
+      this.updateDLSHistory(dls, timestamp);
+
+      // Calculate current percentile position (adaptive threshold)
+      const percentile = this.calculateDLSPercentile(dls);
+
       this.stats.dlsCalculations++;
-      
-      const analysis = this.createAnalysisResult(dls, 'SUCCESS');
-      
-      // Emit events for significant changes
-      if (analysis.percentile >= this.thresholds.highConfidence) {
+
+      const analysis = this.createAnalysisResult(dls, 'SUCCESS', percentile);
+
+      // MANDATE 1: Adaptive signal validation
+      // No more static thresholds - use percentile-based validation
+      if (percentile >= this.thresholds.highConfidence) {
         this.emit('HIGH_LIQUIDITY_REGIME', analysis);
-      } else if (analysis.percentile <= this.thresholds.lowLiquidityWarning) {
+        this.stats.highLiquidityEvents++;
+      } else if (percentile <= this.thresholds.lowLiquidityWarning) {
         this.emit('LOW_LIQUIDITY_WARNING', analysis);
+        this.stats.lowLiquidityWarnings++;
+      } else if (percentile <= this.thresholds.criticalLiquidity) {
+        this.emit('CRITICAL_LIQUIDITY_DETECTED', analysis);
+        this.stats.criticalLiquidityEvents++;
       }
-      
+
       this.emit('LIQUIDITY_ANALYSIS', analysis);
-      
+
       return analysis;
-      
+
     } catch (error) {
-      this.logger?.error('liquidity_analysis_error', {
+      this.logger?.error('mandate_1_dls_calculation_error', {
         error: error.message,
-        symbol: this.symbol
+        symbol: this.symbol,
+        mandate: 'MANDATE_1_FAILURE'
       });
       return this.createAnalysisResult(0, 'ERROR');
     }
@@ -202,27 +226,58 @@ export default class LiquidityAnalyzer extends EventEmitter {
   /**
    * Calculate composite Dynamic Liquidity Score
    */
-  calculateDLS(depth, density, spread, impact) {
-    // Weighted scoring algorithm
-    const depthWeight = 0.30;
-    const densityWeight = 0.25;
-    const spreadWeight = 0.25;
-    const impactWeight = 0.20;
-    
-    // Normalize components to 0-100 scale
-    const normalizedDepth = Math.min(100, (depth / 1000) * 100);
-    const normalizedDensity = Math.min(100, density);
-    const normalizedSpread = Math.min(100, spread);
-    const normalizedImpact = Math.min(100, impact);
-    
+  calculateDLS(depth, density, spread, impact, volumeProfile = 1.0) {
+    // MANDATE 1: Enhanced weighted scoring with volume profile integration
+    const depthWeight = 0.25;      // Order book depth
+    const densityWeight = 0.25;    // Order distribution density
+    const spreadWeight = 0.20;     // Bid-ask spread tightness
+    const impactWeight = 0.20;     // Market impact cost
+    const volumeWeight = 0.10;     // Recent volume profile (1-hour VWAP)
+
+    // Normalize components to 0-100 scale with improved scaling
+    const normalizedDepth = Math.min(100, Math.log10(depth + 1) * 20);
+    const normalizedDensity = Math.min(100, density * 100);
+    const normalizedSpread = Math.max(0, 100 - (spread * 2000)); // Tighter spread = higher score
+    const normalizedImpact = Math.max(0, 100 - (impact * 20)); // Lower impact = higher score
+    const normalizedVolume = Math.min(100, volumeProfile * 100); // Volume profile factor
+
+    // Calculate composite DLS with all factors
     const dls = (
       normalizedDepth * depthWeight +
       normalizedDensity * densityWeight +
       normalizedSpread * spreadWeight +
-      normalizedImpact * impactWeight
+      normalizedImpact * impactWeight +
+      normalizedVolume * volumeWeight
     );
-    
+
     return Math.round(Math.max(0, Math.min(100, dls)));
+  }
+
+  /**
+   * MANDATE 1: Calculate volume profile for DLS enhancement
+   */
+  calculateVolumeProfile(timestamp) {
+    if (this.vwapWindow.length === 0) {
+      return 1.0; // Neutral factor if no volume data
+    }
+
+    // Calculate 1-hour rolling VWAP factor
+    const now = timestamp || Date.now();
+    const oneHourAgo = now - (60 * 60 * 1000);
+
+    // Filter recent volume data
+    const recentVolume = this.vwapWindow.filter(entry => entry.timestamp > oneHourAgo);
+
+    if (recentVolume.length === 0) {
+      return 1.0;
+    }
+
+    // Calculate volume-weighted average and normalize
+    const totalVolume = recentVolume.reduce((sum, entry) => sum + entry.volume, 0);
+    const avgVolume = totalVolume / recentVolume.length;
+
+    // Return normalized volume factor (0.5 to 1.5 range)
+    return Math.max(0.5, Math.min(1.5, avgVolume / 1000000)); // Normalize to typical volume
   }
 
   /**

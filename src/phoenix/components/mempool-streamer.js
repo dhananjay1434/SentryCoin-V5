@@ -368,15 +368,25 @@ export default class MempoolStreamer extends EventEmitter {
       this.stats.avgDetectionLatency = (this.stats.avgDetectionLatency + intent.detectionLatency) / 2;
     }
     
-    this.logger?.warn('whale_intent_detected', {
+    // MANDATE 2: Enhanced logging with mandate compliance tracking
+    this.logger?.warn('mandate_2_whale_intent_detected', {
       whaleAddress: intent.whaleAddress,
       intentType: intent.intentType,
       estimatedValue: intent.estimatedValue,
       threatLevel: intent.threatLevel,
-      detectionLatency: intent.detectionLatency
+      detectionLatency: intent.detectionLatency,
+      mandate: 'MANDATE_2_SUCCESS',
+      latency_target: '<100ms',
+      performance: intent.detectionLatency < 100 ? 'WITHIN_TARGET' : 'EXCEEDS_TARGET'
     });
-    
-    this.emit('WHALE_INTENT_DETECTED', intent);
+
+    // MANDATE 2: Emit high-priority EVENT_WHALE_INTENT before confirmation
+    this.emit('WHALE_INTENT_DETECTED', {
+      ...intent,
+      mandate: 'MANDATE_2',
+      preConfirmation: true,
+      predictiveEdge: true
+    });
   }
 
   /**
