@@ -1,8 +1,12 @@
 /**
- * SentryCoin v4.0 Detailed Reporting System
- * 
- * Generates comprehensive reports for all trading activities, classifications,
- * and performance metrics with downloadable storage capabilities
+ * SentryCoin v5.0 Enhanced Reporting System
+ *
+ * Generates comprehensive reports for multi-strategy trading activities:
+ * - Strategy decision audit trails with forensic logging
+ * - Signal execution and rejection tracking
+ * - Performance analytics across multiple strategies
+ * - Market intelligence correlation analysis
+ * - Downloadable storage with cloud integration
  */
 
 import fs from 'fs/promises';
@@ -15,25 +19,42 @@ class DetailedReporter {
     this.symbol = symbol;
     this.reportId = generateSignalId();
     this.startTime = Date.now();
-    
-    // Report data collection
+
+    // v5.0 Enhanced report data collection
     this.reportData = {
       session: {
         id: this.reportId,
         symbol: this.symbol,
         startTime: new Date().toISOString(),
-        version: '4.1',
-        algorithm: 'Three-Regime Market Intelligence'
+        version: '5.0',
+        algorithm: 'Multi-Strategy Apex Predator Intelligence'
       },
+
+      // v5.0 NEW: Strategy decision audit trails
+      strategyDecisions: [],
+      signalExecutions: [],
+      signalRejections: [],
+      conflictResolutions: [],
+
+      // Legacy compatibility
       classifications: [],
       cascadeSignals: [],
       coilSignals: [],
       shakeoutSignals: [],
       trades: [],
+
+      // v5.0 NEW: Enhanced analytics
+      marketIntelligence: {
+        derivativesAlerts: [],
+        onChainAlerts: [],
+        manipulationDetections: []
+      },
+
       performance: {
         hourly: [],
         daily: [],
-        summary: {}
+        summary: {},
+        strategyBreakdown: {}
       },
       systemEvents: [],
       errors: []
@@ -42,9 +63,160 @@ class DetailedReporter {
     // Report generation intervals
     this.hourlyReportTimer = null;
     this.dailyReportTimer = null;
-    
-    console.log(`📊 Detailed Reporter initialized for ${symbol}`);
+
+    console.log(`📊 Enhanced Reporter v5.0 initialized for ${symbol}`);
     console.log(`📁 Report ID: ${this.reportId}`);
+    console.log(`🔍 Forensic audit trail enabled`);
+  }
+
+  /**
+   * v5.0 NEW: Record strategy decision with forensic detail
+   */
+  recordStrategyDecision(strategyId, action, reason, evidence, marketContext = {}) {
+    const decision = {
+      id: generateSignalId(),
+      timestamp: new Date().toISOString(),
+      istTime: getISTTime(),
+      strategyId,
+      action,
+      reason,
+      evidence,
+      marketContext: {
+        price: marketContext.price || 0,
+        volume: marketContext.volume || 0,
+        volatility: marketContext.volatility || 0,
+        derivatives: marketContext.derivatives || {},
+        onChain: marketContext.onChain || {},
+        manipulation: marketContext.manipulation || {}
+      }
+    };
+
+    this.reportData.strategyDecisions.push(decision);
+
+    // Log for immediate visibility
+    console.log(`📋 DECISION LOGGED [${strategyId}]: ${action} - ${reason}`);
+    if (evidence && Object.keys(evidence).length > 0) {
+      console.log(`   Evidence: ${JSON.stringify(evidence)}`);
+    }
+  }
+
+  /**
+   * v5.0 NEW: Record signal execution
+   */
+  recordSignalExecution(data) {
+    const execution = {
+      id: generateSignalId(),
+      timestamp: new Date().toISOString(),
+      istTime: getISTTime(),
+      signalId: data.signal.id,
+      strategyId: data.signal.strategyId,
+      action: data.signal.action,
+      confidence: data.signal.confidence,
+      triggers: data.signal.triggers,
+      targetPrice: data.signal.targetPrice,
+      stopLossPrice: data.signal.stopLossPrice,
+      positionSizeFactor: data.signal.positionSizeFactor,
+      reasoning: data.signal.reasoning,
+      resolution: data.resolution,
+      executionTime: data.timestamp
+    };
+
+    this.reportData.signalExecutions.push(execution);
+
+    console.log(`✅ EXECUTION LOGGED: ${execution.strategyId} - ${execution.action}`);
+  }
+
+  /**
+   * v5.0 NEW: Record signal rejection
+   */
+  recordSignalRejection(data) {
+    const rejection = {
+      id: generateSignalId(),
+      timestamp: new Date().toISOString(),
+      istTime: getISTTime(),
+      signalId: data.signal.id,
+      strategyId: data.signal.strategyId,
+      action: data.signal.action,
+      confidence: data.signal.confidence,
+      triggers: data.signal.triggers,
+      reason: data.reason,
+      rejectionTime: data.timestamp || Date.now()
+    };
+
+    this.reportData.signalRejections.push(rejection);
+
+    console.log(`🚫 REJECTION LOGGED: ${rejection.strategyId} - ${rejection.reason}`);
+  }
+
+  /**
+   * v5.0 NEW: Record conflict resolution
+   */
+  recordConflictResolution(conflictData) {
+    const resolution = {
+      id: generateSignalId(),
+      timestamp: new Date().toISOString(),
+      istTime: getISTTime(),
+      conflictingSignals: conflictData.conflictingSignals || [],
+      winningSignal: conflictData.winningSignal,
+      resolutionReason: conflictData.resolutionReason,
+      resolutionMethod: conflictData.resolutionMethod
+    };
+
+    this.reportData.conflictResolutions.push(resolution);
+
+    console.log(`⚖️ CONFLICT RESOLVED: ${resolution.resolutionReason}`);
+  }
+
+  /**
+   * v5.0 NEW: Record market intelligence alerts
+   */
+  recordAlert(category, alert) {
+    const alertRecord = {
+      id: generateSignalId(),
+      timestamp: new Date().toISOString(),
+      istTime: getISTTime(),
+      category,
+      type: alert.type,
+      message: alert.message,
+      data: alert
+    };
+
+    switch (category) {
+      case 'DERIVATIVES':
+        this.reportData.marketIntelligence.derivativesAlerts.push(alertRecord);
+        break;
+      case 'ONCHAIN':
+        this.reportData.marketIntelligence.onChainAlerts.push(alertRecord);
+        break;
+      case 'MANIPULATION':
+        this.reportData.marketIntelligence.manipulationDetections.push(alertRecord);
+        break;
+      default:
+        this.reportData.systemEvents.push(alertRecord);
+    }
+
+    console.log(`🚨 ALERT LOGGED [${category}]: ${alert.message}`);
+  }
+
+  /**
+   * v5.0 NEW: Record strategy error
+   */
+  recordStrategyError(data) {
+    const error = {
+      id: generateSignalId(),
+      timestamp: new Date().toISOString(),
+      istTime: getISTTime(),
+      strategyId: data.strategyId,
+      error: {
+        message: data.error.message,
+        stack: data.error.stack
+      },
+      context: data.context || {}
+    };
+
+    this.reportData.errors.push(error);
+
+    console.log(`❌ ERROR LOGGED [${data.strategyId}]: ${data.error.message}`);
   }
 
   /**

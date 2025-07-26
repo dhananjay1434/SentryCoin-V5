@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * SentryCoin v4.1 - Production Market Intelligence Engine
+ * SentryCoin v5.0 - "Apex Predator" Market Intelligence Engine
  *
- * A sophisticated market intelligence platform that combines:
- * - Real-time market regime detection and classification
- * - Three-strategy intelligence system (CASCADE_HUNTER + Alert-Only modules)
- * - Advanced risk management and position tracking
- * - Comprehensive reporting and monitoring
+ * Advanced multi-strategy orchestration platform that combines:
+ * - Multi-strategy coordination with sophisticated conflict resolution
+ * - Real-time derivatives and on-chain intelligence integration
+ * - Enhanced market regime detection and classification
+ * - Macro strategy execution (ETH_UNWIND) with state machine logic
+ * - Comprehensive risk management and forensic audit trails
+ * - Advanced reporting and performance analytics
  *
  * @author SentryCoin Team
- * @version 4.1.1
+ * @version 5.0.0
  * @license MIT
  */
 
@@ -44,9 +46,11 @@ function validateEnvironment() {
  * Main application entry point
  */
 async function main() {
-  console.log('🛡️ SentryCoin v4.1 - Production Market Intelligence Engine');
-  console.log('📊 Market Regime Detection System');
-  console.log('🎯 Three-Strategy Intelligence Platform\n');
+  console.log('🛡️ SentryCoin v5.0 - "Apex Predator" Market Intelligence Engine');
+  console.log('🎯 Multi-Strategy Orchestration Platform');
+  console.log('📊 Advanced Market Regime Detection System');
+  console.log('🔗 Real-time Derivatives & On-Chain Intelligence');
+  console.log('⚖️ Sophisticated Conflict Resolution Engine\n');
 
   // Validate configuration first
   if (!validateConfig()) {
@@ -69,8 +73,8 @@ async function main() {
   app.get('/', (req, res) => {
     const status = sentryCoinSystem ? sentryCoinSystem.getSystemStatus() : { status: 'initializing' };
     res.json({
-      service: 'SentryCoin v4.1 Production Market Intelligence Engine',
-      version: '4.1.1',
+      service: 'SentryCoin v5.0 "Apex Predator" Market Intelligence Engine',
+      version: '5.0.0',
       status: sentryCoinSystem?.isRunning ? 'running' : 'stopped',
       uptime: status.uptime || 0,
       timestamp: new Date().toISOString(),
@@ -81,8 +85,8 @@ async function main() {
   app.get('/health', (req, res) => {
     res.json({
       status: 'ok',
-      service: 'sentrycoin-v4.1',
-      version: '4.1.1',
+      service: 'sentrycoin-v5.0-apex-predator',
+      version: '5.0.0',
       timestamp: new Date().toISOString()
     });
   });
@@ -114,7 +118,7 @@ async function main() {
 
   // Start Express server
   app.listen(port, () => {
-    console.log(`🌐 SentryCoin v4.1 API server running on port ${port}`);
+    console.log(`🌐 SentryCoin v5.0 "Apex Predator" API server running on port ${port}`);
     console.log(`📡 Endpoints:`);
     console.log(`   Status: http://localhost:${port}/status`);
     console.log(`   Performance: http://localhost:${port}/performance`);
@@ -127,14 +131,22 @@ async function main() {
     const started = await sentryCoinSystem.start();
 
     if (started) {
-      console.log('\n🎉 SentryCoin v4.1 is fully operational!');
+      console.log('\n🎉 SentryCoin v5.0 "Apex Predator" is fully operational!');
+      console.log('🎯 Multi-Strategy Orchestration: ACTIVE');
       console.log('🧠 Market Regime Detection: ACTIVE');
-      console.log('🎯 CASCADE_HUNTER Trading: MONITORING');
-      console.log('⚠️ COIL_WATCHER Alerts: ACTIVE');
-      console.log('💡 SHAKEOUT_DETECTOR Alerts: ACTIVE');
-      console.log('📊 Real-time Analysis: RUNNING');
+      console.log('📊 Derivatives Intelligence: MONITORING');
+      console.log('🔗 On-Chain Intelligence: MONITORING');
+      console.log('⚖️ Conflict Resolution: ACTIVE');
+      console.log('🛡️ Risk Management: ACTIVE');
+      console.log('📈 Real-time Analysis: RUNNING');
+
+      const systemStatus = sentryCoinSystem.getSystemStatus();
+      if (systemStatus.strategyManager) {
+        const activeStrategies = Object.keys(systemStatus.strategyManager.strategies || {});
+        console.log(`🎯 Active Strategies: ${activeStrategies.join(', ')}`);
+      }
     } else {
-      console.error('\n❌ Failed to start SentryCoin v4.1');
+      console.error('\n❌ Failed to start SentryCoin v5.0 "Apex Predator"');
       console.log('🌐 API server will continue running for diagnostics');
     }
 

@@ -1,7 +1,7 @@
 {
   "name": "sentrycoin-trading-engine",
-  "version": "4.1.1",
-  "description": "SentryCoin v4.1 - Production Market Intelligence Engine with Three-Regime Detection",
+  "version": "5.0.0",
+  "description": "SentryCoin v5.0 'Apex Predator' - Multi-Strategy Market Intelligence Engine with Advanced Orchestration",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -31,6 +31,8 @@
     "fix:fantom": "node scripts/fix-fantom-error.js",
     "deploy:production": "node scripts/deploy-production.js",
     "monitor:production": "node monitoring/production-dashboard.js",
+    "verify:deployment": "node verify-deployment.js",
+    "uptime:monitor": "node uptime-pinger.js",
     "reports:session": "curl http://localhost:3000/reports/session",
     "reports:hourly": "curl http://localhost:3000/reports/hourly",
     "reports:daily": "curl http://localhost:3000/reports/daily",

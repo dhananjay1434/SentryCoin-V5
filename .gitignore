@@ -10,6 +10,12 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.render
+.env.production
+
+# Sensitive configuration files
+whale-addresses.env
+production.env
 
 # Logs
 logs

@@ -1,0 +1,213 @@
+#!/usr/bin/env node
+
+/**
+ * SentryCoin v5.1 - Render.com Environment Setup Helper
+ * 
+ * Generates the environment variables needed for Render.com deployment
+ * Validates configuration and provides setup instructions
+ */
+
+import fs from 'fs';
+import readline from 'readline';
+
+class RenderEnvSetup {
+  constructor() {
+    this.envVars = new Map();
+    this.requiredVars = [
+      'TELEGRAM_BOT_TOKEN',
+      'TELEGRAM_CHAT_ID',
+      'ETHERSCAN_API_KEY'
+    ];
+    
+    console.log('🛡️ SentryCoin v5.1 - Render.com Environment Setup');
+    console.log('🔧 This script will help you configure environment variables for deployment\n');
+  }
+
+  /**
+   * Create readline interface
+   */
+  createInterface() {
+    return readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+  }
+
+  /**
+   * Ask user for input
+   */
+  async askQuestion(question, defaultValue = '') {
+    const rl = this.createInterface();
+    
+    return new Promise((resolve) => {
+      const prompt = defaultValue 
+        ? `${question} (default: ${defaultValue}): `
+        : `${question}: `;
+        
+      rl.question(prompt, (answer) => {
+        rl.close();
+        resolve(answer.trim() || defaultValue);
+      });
+    });
+  }
+
+  /**
+   * Collect required environment variables
+   */
+  async collectRequiredVars() {
+    console.log('📋 === REQUIRED ENVIRONMENT VARIABLES ===\n');
+    
+    // Telegram Bot Token
+    const botToken = await this.askQuestion(
+      '🤖 Enter your Telegram Bot Token (from @BotFather)'
+    );
+    if (botToken) {
+      this.envVars.set('TELEGRAM_BOT_TOKEN', botToken);
+    }
+    
+    // Telegram Chat ID
+    const chatId = await this.askQuestion(
+      '💬 Enter your Telegram Chat ID (your user ID)'
+    );
+    if (chatId) {
+      this.envVars.set('TELEGRAM_CHAT_ID', chatId);
+      this.envVars.set('TELEGRAM_ADMIN_CHAT_ID', chatId); // Same as chat ID
+    }
+    
+    // Etherscan API Key
+    const etherscanKey = await this.askQuestion(
+      '🔗 Enter your Etherscan API Key (free from etherscan.io)'
+    );
+    if (etherscanKey) {
+      this.envVars.set('ETHERSCAN_API_KEY', etherscanKey);
+    }
+    
+    console.log('\n📋 === OPTIONAL ENVIRONMENT VARIABLES ===\n');
+    
+    // Telegram API credentials (optional)
+    const telegramApiId = await this.askQuestion(
+      '📱 Enter your Telegram API ID (optional, from my.telegram.org)'
+    );
+    if (telegramApiId) {
+      this.envVars.set('TELEGRAM_API_ID', telegramApiId);
+    }
+    
+    const telegramApiHash = await this.askQuestion(
+      '🔐 Enter your Telegram API Hash (optional, from my.telegram.org)'
+    );
+    if (telegramApiHash) {
+      this.envVars.set('TELEGRAM_API_HASH', telegramApiHash);
+    }
+    
+    // Alpha Vantage API Key (optional)
+    const alphaVantageKey = await this.askQuestion(
+      '📊 Enter your Alpha Vantage API Key (optional, free from alphavantage.co)'
+    );
+    if (alphaVantageKey) {
+      this.envVars.set('ALPHA_VANTAGE_API_KEY', alphaVantageKey);
+    }
+  }
+
+  /**
+   * Validate required variables
+   */
+  validateConfiguration() {
+    const missing = [];
+    
+    for (const required of this.requiredVars) {
+      if (!this.envVars.has(required) || !this.envVars.get(required)) {
+        missing.push(required);
+      }
+    }
+    
+    return missing;
+  }
+
+  /**
+   * Generate environment variables for Render.com
+   */
+  generateRenderEnvVars() {
+    console.log('\n🚀 === RENDER.COM ENVIRONMENT VARIABLES ===\n');
+    console.log('Copy and paste these into your Render.com service environment settings:\n');
+    
+    // Required variables
+    console.log('# === REQUIRED VARIABLES ===');
+    for (const [key, value] of this.envVars) {
+      console.log(`${key}=${value}`);
+    }
+    
+    console.log('\n# === SYSTEM CONFIGURATION (already set in render.yaml) ===');
+    console.log('# NODE_ENV=production');
+    console.log('# PAPER_TRADING=true');
+    console.log('# STRATEGY_CASCADE_HUNTER_ENABLED=true');
+    console.log('# STRATEGY_ETH_UNWIND_ENABLED=false');
+    console.log('# ... (other system variables are pre-configured)');
+    
+    console.log('\n📝 === RENDER.COM SETUP INSTRUCTIONS ===\n');
+    console.log('1. Go to your Render.com dashboard');
+    console.log('2. Select your SentryCoin service');
+    console.log('3. Go to "Environment" tab');
+    console.log('4. Add each variable above as a new environment variable');
+    console.log('5. Click "Save Changes" to redeploy with new configuration');
+    console.log('\n⚠️  IMPORTANT: Never commit these values to your Git repository!');
+  }
+
+  /**
+   * Save configuration to local file
+   */
+  async saveToFile() {
+    const saveLocal = await this.askQuestion(
+      '\n💾 Save configuration to local .env.render file? (y/n)',
+      'y'
+    );
+    
+    if (saveLocal.toLowerCase() === 'y' || saveLocal.toLowerCase() === 'yes') {
+      let envContent = '# SentryCoin v5.1 - Render.com Environment Variables\n';
+      envContent += '# Generated by setup-render-env.js\n';
+      envContent += '# DO NOT COMMIT THIS FILE TO VERSION CONTROL\n\n';
+      
+      for (const [key, value] of this.envVars) {
+        envContent += `${key}=${value}\n`;
+      }
+      
+      fs.writeFileSync('.env.render', envContent);
+      console.log('✅ Configuration saved to .env.render');
+      console.log('⚠️  Remember to add .env.render to your .gitignore file!');
+    }
+  }
+
+  /**
+   * Run the setup process
+   */
+  async run() {
+    try {
+      await this.collectRequiredVars();
+      
+      const missing = this.validateConfiguration();
+      
+      if (missing.length > 0) {
+        console.log('\n❌ Missing required variables:');
+        missing.forEach(var_name => console.log(`   - ${var_name}`));
+        console.log('\nPlease provide all required variables to continue.');
+        return;
+      }
+      
+      this.generateRenderEnvVars();
+      await this.saveToFile();
+      
+      console.log('\n🎉 Environment setup complete!');
+      console.log('🚀 You can now deploy to Render.com with these environment variables.');
+      
+    } catch (error) {
+      console.error('\n❌ Setup failed:', error.message);
+    }
+  }
+}
+
+// Run setup if called directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const setup = new RenderEnvSetup();
+  setup.run().catch(console.error);
+}
+
+export default RenderEnvSetup;

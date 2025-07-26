@@ -211,6 +211,86 @@ export const config = {
     mockDataInterval: parseIntEnv('MOCK_DATA_INTERVAL', 2000),
     enableTestSignals: parseBoolEnv('ENABLE_TEST_SIGNALS', false),
     testSignalProbability: parseFloatEnv('TEST_SIGNAL_PROBABILITY', 0.1)
+  },
+
+  // ================================
+  // v5.0 MULTI-STRATEGY CONFIGURATION
+  // ================================
+  strategies: {
+    enabled: process.env.ENABLED_STRATEGIES ?
+      process.env.ENABLED_STRATEGIES.split(',').map(s => s.trim()) :
+      ['CASCADE_HUNTER'],
+
+    // ETH_UNWIND Macro Strategy Configuration
+    ethUnwind: {
+      enabled: parseBoolEnv('ETH_UNWIND_ENABLED', false),
+      symbol: process.env.ETH_UNWIND_SYMBOL || 'ETHUSDT',
+
+      // Technical levels
+      supportLevel: parseFloatEnv('ETH_UNWIND_SUPPORT', 3600),
+      resistanceLevel: parseFloatEnv('ETH_UNWIND_RESISTANCE', 3850),
+      takeProfit1: parseFloatEnv('ETH_UNWIND_TP1', 3000),
+      takeProfit2: parseFloatEnv('ETH_UNWIND_TP2', 2800),
+
+      // Derivatives thresholds
+      oiThreshold: parseIntEnv('ETH_UNWIND_OI_ATH', 24000000000), // $24B
+      fundingRateSpike: parseFloatEnv('ETH_UNWIND_FUNDING_SPIKE', 0.018), // 1.8%
+      elrDangerZone: parseFloatEnv('ETH_UNWIND_ELR_DANGER', 0.90), // 90%
+
+      // On-chain thresholds
+      exchangeInflowThreshold: parseIntEnv('ETH_UNWIND_EXCHANGE_INFLOW', 50000), // 50k ETH
+
+      // Risk management
+      maxPositionSize: parseFloatEnv('ETH_UNWIND_MAX_POSITION', 10000),
+      stopLossPercent: parseFloatEnv('ETH_UNWIND_STOP_LOSS', 7.0),
+      cooldownHours: parseIntEnv('ETH_UNWIND_COOLDOWN_HOURS', 12)
+    }
+  },
+
+  // ================================
+  // DATA SERVICES CONFIGURATION
+  // ================================
+  dataServices: {
+    derivatives: {
+      enabled: parseBoolEnv('DERIVATIVES_MONITOR_ENABLED', true),
+      updateInterval: parseIntEnv('DERIVATIVES_UPDATE_INTERVAL', 300000), // 5 minutes
+      symbol: process.env.DERIVATIVES_SYMBOL || 'ETHUSDT',
+      apis: {
+        binance: process.env.BINANCE_FUTURES_API || 'https://fapi.binance.com',
+        bybit: process.env.BYBIT_API || 'https://api.bybit.com',
+        coinglass: process.env.COINGLASS_API || 'https://open-api.coinglass.com'
+      }
+    },
+
+    onChainV2: {
+      enabled: parseBoolEnv('ONCHAIN_V2_ENABLED', true),
+      updateInterval: parseIntEnv('ONCHAIN_UPDATE_INTERVAL', 600000), // 10 minutes
+      symbol: process.env.ONCHAIN_SYMBOL || 'ETH',
+      apis: {
+        glassnode: process.env.GLASSNODE_API,
+        cryptoquant: process.env.CRYPTOQUANT_API,
+        nansen: process.env.NANSEN_API
+      }
+    }
+  },
+
+  // ================================
+  // MULTI-STRATEGY ORCHESTRATION
+  // ================================
+  orchestration: {
+    enableConflictResolution: parseBoolEnv('ENABLE_CONFLICT_RESOLUTION', true),
+    maxConcurrentStrategies: parseIntEnv('MAX_CONCURRENT_STRATEGIES', 5),
+    signalTimeoutMinutes: parseIntEnv('SIGNAL_TIMEOUT_MINUTES', 30),
+
+    // Strategy priorities (1-10, higher = more priority)
+    strategyPriorities: {
+      'ETH_UNWIND': parseIntEnv('ETH_UNWIND_PRIORITY', 10),
+      'BTC_MACRO': parseIntEnv('BTC_MACRO_PRIORITY', 9),
+      'CASCADE_HUNTER': parseIntEnv('CASCADE_HUNTER_PRIORITY', 7),
+      'SPOOF_FADER': parseIntEnv('SPOOF_FADER_PRIORITY', 5),
+      'COIL_WATCHER': parseIntEnv('COIL_WATCHER_PRIORITY', 3),
+      'SHAKEOUT_DETECTOR': parseIntEnv('SHAKEOUT_DETECTOR_PRIORITY', 3)
+    }
   }
 };
 

@@ -1,6 +1,13 @@
-# 🛡️ SentryCoin v4.1 - Production Trading Engine (V2 Multi-Chain Edition)
+# 🛡️ SentryCoin v5.1 - "Apex Predator" Market Intelligence Engine
 
-A sophisticated quantitative trading system that combines real-time market microstructure analysis with three-regime classification for cryptocurrency markets. Features **V2 multi-chain whale monitoring** across 50+ blockchain networks with unified API integration.
+A sophisticated **multi-strategy orchestration platform** that combines real-time market microstructure analysis, derivatives intelligence, and on-chain monitoring for systematic cryptocurrency trading. Features advanced **Operation Unwind** macro strategy capabilities and comprehensive **24/7 cloud deployment** support.
+
+## 🎯 **NEW in v5.1: "Apex Predator" Multi-Strategy Platform**
+- **Multi-Strategy Orchestration**: Coordinate multiple concurrent trading strategies with sophisticated conflict resolution
+- **ETH_UNWIND Macro Strategy**: Advanced macro positioning for Tier-1 assets with derivatives intelligence
+- **Enhanced Signal Architecture**: Weighted scoring system with real-time thesis confirmation
+- **24/7 Cloud Deployment**: Production-ready Render.com deployment with automated uptime monitoring
+- **Advanced Risk Management**: Dynamic position sizing, trailing stops, and cross-strategy validation
 
 ## 🚀 **NEW in V2: Multi-Chain Whale Monitoring**
 - **Single API Key**: Monitor whale addresses across 50+ chains (Ethereum, BSC, Polygon, Arbitrum, Optimism, Base, etc.)
@@ -30,63 +37,77 @@ A sophisticated quantitative trading system that combines real-time market micro
 
 ## 🚀 **Quick Start**
 
-### **Prerequisites**
+### **🔧 Local Development**
+
+#### **Prerequisites**
 - Node.js 18+
 - Telegram Bot Token & Chat ID
-- Environment variables configured
+- API Keys (Etherscan, Alpha Vantage)
 
-### **Installation**
+#### **Installation**
 ```bash
-git clone <repository-url>
-cd PumpAlarm
+git clone https://github.com/dhananjay1434/SentryCoin-V5.git
+cd SentryCoin-V5
 npm install
 ```
 
-### **Configuration**
-Create a `.env` file with your settings:
-```env
-# Required
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_chat_id
+#### **Environment Setup**
+```bash
+# Interactive environment setup
+node setup-render-env.js
 
-# Trading Configuration
-SYMBOL=SPKUSDT
-EXCHANGE=binance
-PAPER_TRADING=true
-TRIFECTA_TRADING_ENABLED=true
-SQUEEZE_TRADING_ENABLED=true
-
-# Risk Management
-TRIFECTA_MAX_POSITION=1000
-TRIFECTA_STOP_LOSS=2.0
-TRIFECTA_TAKE_PROFIT=5.0
-SQUEEZE_MAX_POSITION=500
-SQUEEZE_STOP_LOSS=1.5
-SQUEEZE_TAKE_PROFIT=3.0
-
-# Classification Thresholds
-PRESSURE_THRESHOLD=3.0
-LIQUIDITY_THRESHOLD=100000
-STRONG_MOMENTUM_THRESHOLD=-0.3
-WEAK_MOMENTUM_THRESHOLD=-0.1
+# Or manually create .env file with required variables
+cp .env.example .env
+# Edit .env with your credentials
 ```
 
-### **Running the System**
+#### **Running Locally**
 ```bash
-# Start production engine
+# Start v5.1 Apex Predator engine
 npm start
 
 # Development mode with auto-reload
 npm run dev
 
-# Run backtesting
-npm run backtest
+# Run comprehensive tests
+npm run test
 
-# Test connectivity
-npm run connectivity
+# Verify system health
+npm run verify:deployment
+```
 
-# Test V2 multi-chain whale monitoring
-npm run test:whale:v2
+### **☁️ Cloud Deployment (Render.com)**
+
+#### **One-Click Deploy**
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/dhananjay1434/SentryCoin-V5)
+
+#### **Manual Deployment**
+1. **Fork this repository**
+2. **Connect to Render.com**
+3. **Set environment variables** (use `setup-render-env.js` for guidance)
+4. **Deploy with `render.yaml` configuration**
+5. **Setup 24/7 uptime monitoring**
+
+```bash
+# Verify cloud deployment
+export RENDER_URL=https://your-app.onrender.com
+npm run verify:deployment
+
+# Monitor uptime (run separately)
+export HEALTH_ENDPOINT=https://your-app.onrender.com/health
+npm run uptime:monitor
+```
+
+### **📊 System Monitoring**
+```bash
+# Health check
+curl https://your-app.onrender.com/health
+
+# System status
+curl https://your-app.onrender.com/status
+
+# Performance metrics
+curl https://your-app.onrender.com/performance
 ```
 
 ## 📊 **System Architecture**

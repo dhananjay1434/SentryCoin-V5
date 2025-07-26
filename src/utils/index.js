@@ -1,14 +1,116 @@
 /**
- * SentryCoin v4.0 - Utility Functions Export
- * 
- * Centralized export of all utility functions and constants
+ * SentryCoin v5.0 - Utility Functions
+ *
+ * Centralized utility functions and constants for the v5.0 system
  */
 
-// Re-export all utility functions from the main utils file
-export * from '../utils.js';
+import crypto from 'crypto';
+
+/**
+ * Generate a unique signal ID
+ */
+export function generateSignalId() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+/**
+ * Get current time in IST format
+ */
+export function getISTTime() {
+  return new Date().toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
+/**
+ * Format price with currency symbol
+ */
+export function formatPriceWithSymbol(price, symbol = 'USD') {
+  if (typeof price !== 'number') return 'N/A';
+  return `$${price.toFixed(2)}`;
+}
+
+/**
+ * Format price without symbol
+ */
+export function formatPrice(price) {
+  if (typeof price !== 'number') return 'N/A';
+  return price.toFixed(2);
+}
+
+/**
+ * Parse environment variable as float
+ */
+export function parseFloatEnv(key, defaultValue) {
+  const value = process.env[key];
+  if (value === undefined || value === '') return defaultValue;
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? defaultValue : parsed;
+}
+
+/**
+ * Parse environment variable as integer
+ */
+export function parseIntEnv(key, defaultValue) {
+  const value = process.env[key];
+  if (value === undefined || value === '') return defaultValue;
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? defaultValue : parsed;
+}
+
+/**
+ * Parse environment variable as boolean
+ */
+export function parseBoolEnv(key, defaultValue) {
+  const value = process.env[key];
+  if (value === undefined || value === '') return defaultValue;
+  return value.toLowerCase() === 'true';
+}
+
+/**
+ * Get risk level based on ask/bid ratio
+ */
+export function getRiskLevel(ratio) {
+  if (ratio >= 5.0) return 'EXTREME';
+  if (ratio >= 3.0) return 'HIGH';
+  if (ratio >= 2.0) return 'MEDIUM';
+  return 'LOW';
+}
+
+/**
+ * Format volume with appropriate units
+ */
+export function formatVolume(volume) {
+  if (typeof volume !== 'number') return 'N/A';
+  if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`;
+  if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`;
+  return volume.toFixed(0);
+}
+
+/**
+ * Calculate percentage change between two values
+ */
+export function calculatePercentageChange(oldValue, newValue) {
+  if (typeof oldValue !== 'number' || typeof newValue !== 'number') return 0;
+  if (oldValue === 0) return 0;
+  return ((newValue - oldValue) / oldValue) * 100;
+}
+
+/**
+ * Convert to IST time (alias for getISTTime for backward compatibility)
+ */
+export function toIST() {
+  return getISTTime();
+}
 
 // Application constants
-export const APP_VERSION = '4.1.1';
+export const APP_VERSION = '5.0.0';
 export const APP_NAME = 'SentryCoin';
 
 // Trading constants
