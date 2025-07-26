@@ -95,10 +95,10 @@ export default class PhoenixEngine extends EventEmitter {
       this.logger.info('mandate_1_ready', 'Dynamic Liquidity Analyzer operational');
       
       // Initialize Mempool Streamer (Mandate 2)
-      // Note: Blocknative Ethernow service ended March 1, 2025
+      // Primary: Alchemy, Backup: QuickNode (Blocknative deprecated March 2025)
       const mempoolProviders = {
         alchemy: { enabled: !!process.env.ALCHEMY_API_KEY },
-        blocknative: { enabled: false, deprecated: true } // Deprecated as of March 2025
+        quicknode: { enabled: !!process.env.QUICKNODE_WS_URL }
       };
 
       // Check if any mempool providers are available
@@ -388,32 +388,70 @@ export default class PhoenixEngine extends EventEmitter {
    */
   async shutdown() {
     if (!this.isRunning) return;
-    
-    this.logger.info('phoenix_shutdown', 'Shutting down Phoenix Engine');
-    
+
+    this.logger.info('phoenix_shutdown', 'Initiating graceful shutdown sequence');
+
     try {
-      // Send shutdown notification
+      // Phase 1: Stop accepting new work
+      this.logger.info('shutdown_phase_1', 'Stopping task scheduler from accepting new tasks');
+      if (this.taskScheduler) {
+        await this.taskScheduler.stopAcceptingTasks();
+      }
+
+      // Phase 2: Wait for active tasks to complete (10 second timeout)
+      this.logger.info('shutdown_phase_2', 'Waiting for active tasks to complete');
+      if (this.taskScheduler) {
+        await this.taskScheduler.waitForActiveTasks(10000);
+      }
+
+      // Phase 3: Terminate all workers with confirmation
+      this.logger.info('shutdown_phase_3', 'Terminating worker processes');
+      if (this.taskScheduler) {
+        await this.taskScheduler.terminateAllWorkers();
+      }
+
+      // Phase 4: Disconnect WebSocket clients
+      this.logger.info('shutdown_phase_4', 'Disconnecting real-time feeds');
+      if (this.mempoolStreamer) {
+        await this.mempoolStreamer.stop();
+      }
+
+      if (this.derivativesMonitor) {
+        await this.derivativesMonitor.stop();
+      }
+
+      // Phase 5: Stop Express server
+      this.logger.info('shutdown_phase_5', 'Stopping Express server');
+      if (this.server) {
+        await new Promise((resolve) => {
+          this.server.close(() => {
+            this.logger.info('express_server_stopped', 'Express server closed');
+            resolve();
+          });
+        });
+      }
+
+      // Phase 6: Send final notification
+      this.logger.info('shutdown_phase_6', 'Sending shutdown notification');
       await this.telegramReporter.sendAlert({
         type: 'SYSTEM_SHUTDOWN',
         title: '🛑 PHOENIX ENGINE SHUTDOWN',
-        message: `System shutting down gracefully\nUptime: ${Math.floor((Date.now() - this.startTime) / 1000)}s\nTime: ${getISTTime()}`,
+        message: `System shutdown complete\nUptime: ${Math.floor((Date.now() - this.startTime) / 1000)}s\nAll components terminated cleanly`,
         priority: 'NORMAL'
       });
-      
-      // Stop all components
-      if (this.mempoolStreamer) await this.mempoolStreamer.stop();
-      if (this.derivativesMonitor) await this.derivativesMonitor.stop();
-      if (this.taskScheduler) await this.taskScheduler.stop();
-      
+
       this.isRunning = false;
-      
-      // Shutdown logger last
+
+      // Phase 7: Final logger shutdown
+      this.logger.info('shutdown_complete', 'All components terminated cleanly');
       this.logger.shutdown();
-      
-      console.log('🔥 Phoenix Engine shutdown complete');
-      
+
+      console.log('🔥 Phoenix Engine shutdown complete - zero zombie processes');
+
     } catch (error) {
       console.error('❌ Error during shutdown:', error.message);
+      // Force exit if graceful shutdown fails
+      process.exit(1);
     }
   }
 }

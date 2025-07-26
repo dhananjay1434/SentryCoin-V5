@@ -13,8 +13,8 @@ import dotenv from 'dotenv';
 import express from 'express';
 import PhoenixEngine from './src/phoenix/engine.js';
 
-// Load environment configuration
-dotenv.config({ path: '.env.production' });
+// Load Phoenix v6.0 clean configuration
+dotenv.config({ path: '.env.phoenix' });
 
 class PhoenixProductionLauncher {
   constructor() {

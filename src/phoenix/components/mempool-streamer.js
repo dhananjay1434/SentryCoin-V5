@@ -69,7 +69,7 @@ export default class MempoolStreamer extends EventEmitter {
     this.logger?.info('mempool_streaming_start', 'Starting real-time mempool monitoring');
 
     try {
-      // Try Alchemy first (primary provider in 2025)
+      // Try Alchemy first (primary provider)
       if (this.providers.alchemy?.enabled) {
         try {
           await this.connectAlchemy();
@@ -78,9 +78,13 @@ export default class MempoolStreamer extends EventEmitter {
         }
       }
 
-      // Blocknative deprecated as of March 2025 - skip connection attempt
-      if (this.providers.blocknative?.enabled) {
-        this.logger?.warn('blocknative_deprecated', 'Blocknative Ethernow service ended March 1, 2025 - using Alchemy instead');
+      // Try QuickNode as backup provider
+      if (this.providers.quicknode?.enabled && !this.isStreaming) {
+        try {
+          await this.connectQuickNode();
+        } catch (error) {
+          this.logger?.warn('quicknode_connection_failed', error.message);
+        }
       }
 
       if (!this.isStreaming) {
@@ -104,75 +108,57 @@ export default class MempoolStreamer extends EventEmitter {
   }
 
   /**
-   * Connect to Blocknative mempool stream
+   * Connect to QuickNode mempool stream (backup provider)
    */
-  async connectBlocknative() {
-    const apiKey = process.env.BLOCKNATIVE_API_KEY;
-    if (!apiKey) {
-      throw new Error('Blocknative API key not configured');
+  async connectQuickNode() {
+    const wsUrl = process.env.QUICKNODE_WS_URL;
+    if (!wsUrl) {
+      throw new Error('QuickNode WebSocket URL not configured');
     }
 
     return new Promise((resolve, reject) => {
-      // Updated Blocknative WebSocket endpoint
-      const ws = new WebSocket('wss://api.blocknative.com/v0', {
-        headers: {
-          'Authorization': apiKey
-        }
-      });
+      const ws = new WebSocket(wsUrl);
 
       const timeout = setTimeout(() => {
         ws.close();
-        reject(new Error('Blocknative connection timeout'));
+        reject(new Error('QuickNode connection timeout'));
       }, 15000);
-      
+
       ws.on('open', () => {
         clearTimeout(timeout);
 
-        // Initialize connection with updated format
+        // Subscribe to pending transactions with full transaction objects
         ws.send(JSON.stringify({
-          categoryCode: 'initialize',
-          eventCode: 'checkDappId',
-          dappId: apiKey
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'eth_subscribe',
+          params: ['newPendingTransactions', true]
         }));
 
-        // Subscribe to pending transactions for whale addresses
-        ws.send(JSON.stringify({
-          categoryCode: 'configs',
-          eventCode: 'put',
-          config: {
-            scope: 'global',
-            filters: [{
-              status: 'pending',
-              from: Array.from(this.whaleWatchlist),
-              to: Array.from(this.whaleWatchlist)
-            }]
-          }
-        }));
-        
-        this.connections.set('blocknative', ws);
+        this.connections.set('quicknode', ws);
         this.isStreaming = true;
-        
-        this.logger?.info('blocknative_connected', 'Primary mempool provider active');
+
+        this.logger?.info('quicknode_connected', 'Backup mempool provider active');
         resolve();
       });
-      
+
       ws.on('message', (data) => {
         try {
-          const event = JSON.parse(data.toString());
-          this.processBlocknativeEvent(event);
+          const message = JSON.parse(data.toString());
+          this.handleAlchemyMessage(message); // Same format as Alchemy
         } catch (error) {
-          this.logger?.error('blocknative_message_error', error.message);
+          this.logger?.error('quicknode_message_error', error.message);
         }
       });
-      
+
       ws.on('error', (error) => {
         clearTimeout(timeout);
-        this.logger?.error('blocknative_error', error.message);
+        this.logger?.error('quicknode_error', error.message);
         reject(error);
       });
-      
+
       ws.on('close', () => {
-        this.handleConnectionClose('blocknative');
+        this.handleConnectionClose('quicknode');
       });
     });
   }

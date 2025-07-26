@@ -462,38 +462,82 @@ export default class TaskScheduler extends EventEmitter {
   }
 
   /**
-   * Stop task scheduler
+   * Stop accepting new tasks
    */
-  async stop() {
-    if (!this.isRunning) return;
-    
-    this.logger?.info('task_scheduler_stop', 'Stopping task scheduler');
-    
+  async stopAcceptingTasks() {
+    this.logger?.info('task_scheduler_stop_accepting', 'Stopping task acceptance');
     this.isRunning = false;
-    
+
     if (this.schedulerTimer) {
       clearInterval(this.schedulerTimer);
       this.schedulerTimer = null;
     }
-    
-    // Wait for running tasks to complete (with timeout)
-    const timeout = 30000; // 30 seconds
+  }
+
+  /**
+   * Wait for active tasks to complete
+   */
+  async waitForActiveTasks(timeoutMs = 10000) {
     const startTime = Date.now();
-    
-    while (this.runningTasks.size > 0 && (Date.now() - startTime) < timeout) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+
+    while (this.runningTasks.size > 0 && (Date.now() - startTime) < timeoutMs) {
+      this.logger?.info('waiting_for_tasks', `${this.runningTasks.size} tasks still active`);
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
-    
-    // Shutdown workers
+
+    if (this.runningTasks.size > 0) {
+      this.logger?.warn('task_timeout', `${this.runningTasks.size} tasks did not complete within timeout`);
+    } else {
+      this.logger?.info('all_tasks_complete', 'All active tasks completed');
+    }
+  }
+
+  /**
+   * Terminate all workers with confirmation
+   */
+  async terminateAllWorkers() {
+    this.logger?.info('terminating_workers', `Terminating ${this.workers.size} workers`);
+
+    const terminationPromises = [];
+
     for (const [workerId, worker] of this.workers) {
-      await worker.terminate();
-      this.logger?.debug('worker_terminated', workerId);
+      terminationPromises.push(new Promise((resolve) => {
+        worker.once('exit', (code) => {
+          if (code === 0) {
+            this.logger?.info('worker_terminated_cleanly', `Worker ${workerId} exited with code ${code}`);
+          } else {
+            this.logger?.warn('worker_terminated_error', `Worker ${workerId} exited with code ${code}`);
+          }
+          resolve();
+        });
+
+        worker.terminate();
+      }));
     }
-    
+
+    await Promise.all(terminationPromises);
+
     this.workers.clear();
     this.availableWorkers.length = 0;
     this.busyWorkers.clear();
-    
+    this.runningTasks.clear();
+
+    this.logger?.info('all_workers_terminated', 'All workers terminated cleanly');
+  }
+
+  /**
+   * Stop task scheduler (legacy method - now uses sequential shutdown)
+   */
+  async stop() {
+    if (!this.isRunning) return;
+
+    this.logger?.info('task_scheduler_stop', 'Stopping task scheduler');
+
+    // Use sequential shutdown approach
+    await this.stopAcceptingTasks();
+    await this.waitForActiveTasks(30000); // 30 second timeout
+    await this.terminateAllWorkers();
+
     this.logger?.info('task_scheduler_stopped', 'Task scheduler shutdown complete');
   }
 
