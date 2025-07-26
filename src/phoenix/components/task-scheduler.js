@@ -97,11 +97,12 @@ export default class TaskScheduler extends EventEmitter {
    * Create a new worker
    */
   async createWorker() {
-    const workerId = `worker_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const workerId = `worker_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     
     try {
       const worker = new Worker(this.config.workerScript, {
-        workerData: { workerId }
+        workerData: { workerId },
+        type: 'module' // Enable ES modules in worker threads
       });
       
       worker.on('message', (message) => {
@@ -189,7 +190,7 @@ export default class TaskScheduler extends EventEmitter {
    */
   createTask(config) {
     return {
-      id: config.id || `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: config.id || `task_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       type: config.type,
       priority: config.priority || 5,
       payload: config.payload || {},
@@ -424,20 +425,53 @@ export default class TaskScheduler extends EventEmitter {
   handleWorkerError(workerId, error) {
     this.logger?.error('worker_error', {
       workerId,
-      error: error.message
+      error: error.message,
+      stack: error.stack,
+      code: error.code
     });
-    
+
     // Remove failed worker and create replacement
     this.destroyWorker(workerId);
-    this.createWorker();
+
+    // Only create replacement if we're still running
+    if (this.isRunning) {
+      setTimeout(() => {
+        this.createWorker().catch(err => {
+          this.logger?.error('worker_replacement_failed', {
+            error: err.message
+          });
+        });
+      }, 1000); // Delay to prevent rapid failure loops
+    }
   }
 
   /**
    * Handle worker exit
    */
   handleWorkerExit(workerId, code) {
-    this.logger?.warn('worker_exit', { workerId, code });
+    if (code === 0) {
+      this.logger?.info('worker_exit_clean', { workerId, code });
+    } else {
+      this.logger?.warn('worker_terminated_error', {
+        workerId,
+        code,
+        message: `Worker ${workerId} exited with code ${code}`
+      });
+    }
+
     this.destroyWorker(workerId);
+
+    // Create replacement worker if system is still running and exit was unexpected
+    if (this.isRunning && code !== 0) {
+      setTimeout(() => {
+        this.createWorker().catch(err => {
+          this.logger?.error('worker_replacement_after_exit_failed', {
+            originalWorkerId: workerId,
+            error: err.message
+          });
+        });
+      }, 2000); // Longer delay for exit-based replacements
+    }
   }
 
   /**
