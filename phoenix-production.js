@@ -92,6 +92,157 @@ class PhoenixProductionLauncher {
       });
     });
 
+    // Webhook endpoint for whale transactions (Project Fortress v6.1)
+    this.expressApp.post('/webhook/whale-transactions', express.json(), (req, res) => {
+      try {
+        const { matchingTransactions, matchingReceipts } = req.body;
+
+        console.log(`[INFO] Webhook received: ${matchingTransactions?.length || 0} transactions, ${matchingReceipts?.length || 0} receipts`);
+
+        // Process native ETH transactions
+        if (matchingTransactions && this.phoenixEngine?.mempoolStreamer) {
+          matchingTransactions.forEach(tx => {
+            this.phoenixEngine.mempoolStreamer.processWebhookTransaction({
+              type: 'native',
+              hash: tx.hash,
+              from: tx.from,
+              to: tx.to,
+              value: tx.value,
+              blockNumber: tx.blockNumber,
+              timestamp: new Date().toISOString(),
+              source: 'webhook'
+            });
+          });
+        }
+
+        // Process token transfers from receipts
+        if (matchingReceipts && this.phoenixEngine?.mempoolStreamer) {
+          matchingReceipts.forEach(receipt => {
+            if (receipt.logs) {
+              receipt.logs.forEach(log => {
+                // Check for ERC-20 Transfer event signature
+                if (log.topics && log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef') {
+                  this.phoenixEngine.mempoolStreamer.processWebhookTransaction({
+                    type: 'erc20',
+                    hash: receipt.transactionHash,
+                    contractAddress: log.address,
+                    from: log.topics[1] ? '0x' + log.topics[1].slice(26) : null,
+                    to: log.topics[2] ? '0x' + log.topics[2].slice(26) : null,
+                    value: log.data,
+                    blockNumber: receipt.blockNumber,
+                    timestamp: new Date().toISOString(),
+                    source: 'webhook'
+                  });
+                }
+              });
+            }
+          });
+        }
+
+        res.status(200).json({
+          status: 'processed',
+          timestamp: new Date().toISOString(),
+          processed: {
+            transactions: matchingTransactions?.length || 0,
+            receipts: matchingReceipts?.length || 0
+          }
+        });
+
+      } catch (error) {
+        console.error('[ERROR] Webhook processing failed:', error.message);
+        res.status(500).json({
+          error: 'Webhook processing failed',
+          message: error.message,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    // Webhook endpoint for whale transactions (Project Fortress v6.1)
+    this.expressApp.post('/webhook/whale-transactions', express.json(), (req, res) => {
+      try {
+        // Validate security token
+        const authHeader = req.headers['authorization'];
+        const expectedToken = process.env.WEBHOOK_SECURITY_TOKEN;
+
+        if (!authHeader || !expectedToken || authHeader !== `Bearer ${expectedToken}`) {
+          console.log('[WARN] Webhook unauthorized access attempt');
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const { matchingTransactions, matchingReceipts } = req.body;
+
+        console.log(`[INFO] Fortress Webhook: ${matchingTransactions?.length || 0} transactions, ${matchingReceipts?.length || 0} receipts`);
+
+        let processedCount = 0;
+
+        // Process native ETH transactions
+        if (matchingTransactions && this.phoenixEngine?.mempoolStreamer) {
+          matchingTransactions.forEach(tx => {
+            if (this.phoenixEngine.mempoolStreamer.processWebhookTransaction) {
+              this.phoenixEngine.mempoolStreamer.processWebhookTransaction({
+                type: 'native',
+                hash: tx.hash,
+                from: tx.from,
+                to: tx.to,
+                value: tx.value,
+                blockNumber: tx.blockNumber,
+                timestamp: new Date().toISOString(),
+                source: 'webhook'
+              });
+              processedCount++;
+            }
+          });
+        }
+
+        // Process token transfers from receipts
+        if (matchingReceipts && this.phoenixEngine?.mempoolStreamer) {
+          matchingReceipts.forEach(receipt => {
+            if (receipt.logs) {
+              receipt.logs.forEach(log => {
+                // Check for ERC-20 Transfer event signature
+                if (log.topics && log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef') {
+                  if (this.phoenixEngine.mempoolStreamer.processWebhookTransaction) {
+                    this.phoenixEngine.mempoolStreamer.processWebhookTransaction({
+                      type: 'erc20',
+                      hash: receipt.transactionHash,
+                      contractAddress: log.address,
+                      from: log.topics[1] ? '0x' + log.topics[1].slice(26) : null,
+                      to: log.topics[2] ? '0x' + log.topics[2].slice(26) : null,
+                      value: log.data,
+                      blockNumber: receipt.blockNumber,
+                      timestamp: new Date().toISOString(),
+                      source: 'webhook'
+                    });
+                    processedCount++;
+                  }
+                }
+              });
+            }
+          });
+        }
+
+        res.status(200).json({
+          status: 'processed',
+          timestamp: new Date().toISOString(),
+          processed: {
+            transactions: matchingTransactions?.length || 0,
+            receipts: matchingReceipts?.length || 0,
+            totalProcessed: processedCount
+          },
+          fortress: 'WHALE_INTELLIGENCE_RECEIVED'
+        });
+
+      } catch (error) {
+        console.error('[ERROR] Fortress webhook processing failed:', error.message);
+        res.status(500).json({
+          error: 'Webhook processing failed',
+          message: error.message,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
     // Root endpoint
     this.expressApp.get('/', (req, res) => {
       const metrics = this.phoenixEngine ? this.phoenixEngine.getMetrics() : null;

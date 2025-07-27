@@ -472,6 +472,44 @@ export default class MempoolStreamer extends EventEmitter {
   }
 
   /**
+   * FORTRESS v6.1: Process webhook transaction data
+   */
+  processWebhookTransaction(webhookData) {
+    const { type, hash, from, to, value, contractAddress, source } = webhookData;
+
+    // Check if this involves a whale address
+    const whaleAddress = this.isWhaleTransaction(from, to);
+
+    if (whaleAddress) {
+      this.stats.whaleTransactions++;
+
+      // Log the whale transaction with webhook source
+      this.logWhaleTransaction({
+        hash,
+        from,
+        to,
+        value: type === 'native' ? value : this.parseTokenValue(value),
+        contractAddress
+      }, whaleAddress, true, source); // isNew = true, source = 'webhook'
+
+      console.log(`[SUCCESS] Fortress webhook processed whale transaction: ${hash.slice(0, 10)}...`);
+    }
+  }
+
+  /**
+   * Parse token value from hex data
+   */
+  parseTokenValue(hexValue) {
+    try {
+      if (!hexValue || hexValue === '0x') return '0';
+      const value = parseInt(hexValue, 16);
+      return (value / 1e18).toFixed(4); // Assume 18 decimals for most tokens
+    } catch (error) {
+      return '0';
+    }
+  }
+
+  /**
    * Get performance statistics
    */
   getStats() {
