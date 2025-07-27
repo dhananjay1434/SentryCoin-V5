@@ -19,7 +19,7 @@
 import dotenv from 'dotenv';
 import PhoenixEngine from './src/phoenix/engine.js';
 
-dotenv.config({ path: '.env.production' });
+dotenv.config();
 
 class PhoenixSystemTester {
   constructor() {

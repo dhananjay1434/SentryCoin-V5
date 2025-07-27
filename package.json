@@ -1,7 +1,7 @@
 {
   "name": "sentrycoin-trading-engine",
-  "version": "6.0.0",
-  "description": "SentryCoin v6.0 'Phoenix' - Complete Re-Architecture with All Red Team Mandates Resolved",
+  "version": "6.1.0",
+  "description": "SentryCoin v6.1 'Project Fortress' - Final Hardening Sprint with Total System Stability and Observability",
   "main": "phoenix-production.js",
   "type": "module",
   "scripts": {
@@ -11,6 +11,8 @@
     "legacy": "node src/index.js",
     "test": "node test-phoenix-complete.js",
     "test:apis": "node test-apis-direct.js",
+    "test:fortress": "node test-fortress-gauntlet.js",
+    "gauntlet": "node test-fortress-gauntlet.js",
     "validate:mandates": "node validate-phoenix-mandates.js",
     "validate:phoenix": "node validate-phoenix-mandates.js",
     "test:legacy": "node tests/unit/core.test.js",

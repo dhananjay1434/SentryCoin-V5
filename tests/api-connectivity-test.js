@@ -14,7 +14,7 @@ import axios from 'axios';
 import WebSocket from 'ws';
 
 // Load environment configuration
-dotenv.config({ path: '.env.production' });
+dotenv.config();
 
 class APIConnectivityTester {
   constructor() {

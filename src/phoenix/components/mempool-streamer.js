@@ -234,16 +234,20 @@ export default class MempoolStreamer extends EventEmitter {
    */
   processBlocknativeEvent(event) {
     if (event.status !== 'pending' || !event.transaction) return;
-    
+
     this.stats.totalTransactions++;
-    
+
     const transaction = event.transaction;
     const whaleAddress = this.isWhaleTransaction(transaction.from, transaction.to);
-    
+
     if (whaleAddress) {
       this.stats.whaleTransactions++;
+
+      // FORTRESS v6.1: Log ALL whale transactions for verifiable output
+      this.logWhaleTransaction(transaction, whaleAddress, false);
+
       const intent = this.analyzeWhaleIntent(transaction, whaleAddress);
-      
+
       if (intent) {
         this.emitWhaleIntent(intent);
       }
@@ -255,20 +259,53 @@ export default class MempoolStreamer extends EventEmitter {
    */
   processAlchemyEvent(event) {
     if (!event.params?.result) return;
-    
+
     this.stats.totalTransactions++;
-    
+
     const transaction = event.params.result;
     const whaleAddress = this.isWhaleTransaction(transaction.from, transaction.to);
-    
+
     if (whaleAddress) {
       this.stats.whaleTransactions++;
+
+      // FORTRESS v6.1: Log ALL whale transactions for verifiable output
+      this.logWhaleTransaction(transaction, whaleAddress, true);
+
       const intent = this.analyzeWhaleIntent(transaction, whaleAddress);
-      
+
       if (intent) {
         this.emitWhaleIntent(intent);
       }
     }
+  }
+
+  /**
+   * FORTRESS v6.1: Log whale transaction for verifiable output
+   */
+  logWhaleTransaction(transaction, whaleAddress, isNew) {
+    const { from, to, value, hash } = transaction;
+    const valueEth = parseInt(value || '0', 16) / 1e18;
+    const valueUSD = valueEth * 3500; // Approximate ETH price
+
+    const whaleLog = {
+      logType: 'WHALE_MEMPOOL_TX',
+      whaleAddress,
+      transactionHash: hash,
+      from,
+      to,
+      valueEth: parseFloat(valueEth.toFixed(4)),
+      valueUSD: Math.round(valueUSD),
+      isNew,
+      provider: isNew ? 'alchemy' : 'blocknative',
+      timestamp: new Date().toISOString(),
+      detectionLatency: Date.now() - this.stats.startTime
+    };
+
+    // Log via stateful logger
+    this.logger?.info('whale_mempool_transaction', whaleLog);
+
+    // Also emit for real-time monitoring
+    this.emit('WHALE_TRANSACTION_DETECTED', whaleLog);
   }
 
   /**
@@ -277,14 +314,14 @@ export default class MempoolStreamer extends EventEmitter {
   isWhaleTransaction(from, to) {
     const fromLower = from?.toLowerCase();
     const toLower = to?.toLowerCase();
-    
+
     for (const whaleAddress of this.whaleWatchlist) {
       const whaleLower = whaleAddress.toLowerCase();
       if (fromLower === whaleLower || toLower === whaleLower) {
         return whaleAddress;
       }
     }
-    
+
     return null;
   }
 

@@ -91,7 +91,7 @@ class ProductionDeployment {
    */
   validateConfigFiles() {
     const requiredConfigs = [
-      '.env.example',
+      '.env',
       'config/production.env',
       'config/binance.js'
     ];

@@ -392,10 +392,13 @@ export default class TaskScheduler extends EventEmitter {
       
       this.stats.tasksRetried++;
       
+      // FORTRESS v6.1: Include original error message in retry logs
       this.logger?.warn('task_retry_scheduled', {
         taskId: task.id,
         retryCount: task.retryCount,
-        nextAttempt: task.scheduledTime
+        nextAttempt: task.scheduledTime,
+        originalError: error.message,
+        taskType: task.type
       });
       
     } else {
@@ -535,7 +538,7 @@ export default class TaskScheduler extends EventEmitter {
   }
 
   /**
-   * Terminate all workers with confirmation
+   * FORTRESS v6.1: Terminate all workers with proper shutdown messages
    */
   async terminateAllWorkers() {
     this.logger?.info('terminating_workers', `Terminating ${this.workers.size} workers`);
@@ -544,16 +547,30 @@ export default class TaskScheduler extends EventEmitter {
 
     for (const [workerId, worker] of this.workers) {
       terminationPromises.push(new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          this.logger?.warn('worker_shutdown_timeout', `Worker ${workerId} did not respond to shutdown signal, forcing termination`);
+          worker.terminate();
+          resolve();
+        }, 5000); // 5 second timeout for graceful shutdown
+
         worker.once('exit', (code) => {
+          clearTimeout(timeout);
           if (code === 0) {
             this.logger?.info('worker_terminated_cleanly', `Worker ${workerId} exited with code ${code}`);
           } else {
-            this.logger?.warn('worker_terminated_error', `Worker ${workerId} exited with code ${code}`);
+            this.logger?.error('worker_terminated_error', `Worker ${workerId} exited with code ${code} - NON-ZERO EXIT CODE DETECTED`);
           }
           resolve();
         });
 
-        worker.terminate();
+        // FORTRESS v6.1: Send proper shutdown message instead of immediate termination
+        try {
+          worker.postMessage({ type: 'SHUTDOWN' });
+          this.logger?.debug('shutdown_message_sent', `Shutdown signal sent to worker ${workerId}`);
+        } catch (error) {
+          this.logger?.warn('shutdown_message_failed', `Failed to send shutdown message to worker ${workerId}: ${error.message}`);
+          worker.terminate();
+        }
       }));
     }
 
@@ -564,7 +581,7 @@ export default class TaskScheduler extends EventEmitter {
     this.busyWorkers.clear();
     this.runningTasks.clear();
 
-    this.logger?.info('all_workers_terminated', 'All workers terminated cleanly');
+    this.logger?.info('shutdown_sequence_complete', 'Worker shutdown sequence complete - final exit codes logged');
   }
 
   /**

@@ -14,7 +14,7 @@
 import dotenv from 'dotenv';
 import PhoenixEngine from './src/phoenix/engine.js';
 
-dotenv.config({ path: '.env.phoenix' });
+dotenv.config();
 
 class PhoenixMandateValidator {
   constructor() {

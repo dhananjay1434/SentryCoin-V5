@@ -57,7 +57,7 @@ npm install
 node setup-render-env.js
 
 # Or manually create .env file with required variables
-cp .env.example .env
+# Environment file is already configured as .env
 # Edit .env with your credentials
 ```
 

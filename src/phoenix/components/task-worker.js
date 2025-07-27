@@ -1,14 +1,60 @@
 /**
- * Phoenix v6.0 - Task Worker
- * 
+ * Phoenix v6.1 - Task Worker - PROJECT FORTRESS HARDENING
+ *
  * Worker thread implementation for distributed task execution.
- * Handles various task types for the Phoenix Engine.
+ * Handles various task types for the Phoenix Engine with comprehensive
+ * error handling and graceful shutdown protocols.
  */
 
 import { parentPort, workerData } from 'worker_threads';
 import axios from 'axios';
 
 const { workerId } = workerData;
+
+// Worker state management
+let isShuttingDown = false;
+let activeTask = null;
+const startTime = Date.now();
+
+/**
+ * FORTRESS v6.1: Enhanced error logging with full context
+ */
+function logError(errorType, error, context = {}) {
+  const errorLog = {
+    logType: 'WORKER_ERROR',
+    workerId,
+    errorType,
+    error: error.message,
+    stack: error.stack,
+    context,
+    activeTask,
+    timestamp: new Date().toISOString(),
+    workerUptime: Date.now() - startTime
+  };
+
+  console.error(`[ERROR] Worker ${workerId}:`, JSON.stringify(errorLog, null, 2));
+}
+
+/**
+ * FORTRESS v6.1: Graceful exit with proper cleanup
+ */
+function gracefulExit(exitCode = 0) {
+  if (isShuttingDown) return;
+
+  isShuttingDown = true;
+
+  console.log(`[INFO] Worker ${workerId}: Initiating graceful shutdown (exit code: ${exitCode})`);
+
+  // Clean up any active resources
+  if (activeTask) {
+    console.log(`[WARN] Worker ${workerId}: Terminating with active task: ${activeTask.taskId}`);
+  }
+
+  // Final status log
+  console.log(`[INFO] Worker ${workerId}: Shutdown complete - uptime: ${Date.now() - startTime}ms`);
+
+  process.exit(exitCode);
+}
 
 /**
  * Task execution handlers
@@ -22,33 +68,54 @@ const taskHandlers = {
 };
 
 /**
- * Main message handler
+ * FORTRESS v6.1: Enhanced message handler with comprehensive error handling
  */
 parentPort.on('message', async (message) => {
+  // Handle shutdown message
+  if (message.type === 'SHUTDOWN') {
+    console.log(`[INFO] Worker ${workerId}: Received shutdown signal`);
+    gracefulExit(0);
+    return;
+  }
+
   const { taskId, type, payload } = message;
-  
+
+  // Set active task for monitoring
+  activeTask = { taskId, type, startTime: Date.now() };
+
   try {
     const handler = taskHandlers[type];
     if (!handler) {
       throw new Error(`Unknown task type: ${type}`);
     }
-    
+
+    console.log(`[DEBUG] Worker ${workerId}: Executing task ${taskId} (${type})`);
+
     const result = await handler(payload);
-    
+
     parentPort.postMessage({
       taskId,
       success: true,
       result,
-      workerId
+      workerId,
+      executionTime: Date.now() - activeTask.startTime
     });
-    
+
+    console.log(`[DEBUG] Worker ${workerId}: Task ${taskId} completed successfully`);
+
   } catch (error) {
+    logError('task_execution_error', error, { taskId, type, payload });
+
     parentPort.postMessage({
       taskId,
       success: false,
       error: error.message,
-      workerId
+      stack: error.stack,
+      workerId,
+      executionTime: Date.now() - activeTask.startTime
     });
+  } finally {
+    activeTask = null;
   }
 });
 
@@ -240,19 +307,41 @@ async function handleMemoryCleanup(payload) {
 }
 
 /**
- * Worker initialization
+ * FORTRESS v6.1: Enhanced worker initialization with error handlers
  */
-console.log(`Phoenix Task Worker ${workerId} initialized`);
+console.log(`[INFO] Phoenix Task Worker ${workerId} initialized - Fortress v6.1`);
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logError('uncaught_exception', error, { activeTask });
+  gracefulExit(1);
+});
+
+// Handle unhandled rejections
+process.on('unhandledRejection', (reason, promise) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  logError('unhandled_rejection', error, {
+    activeTask,
+    promise: promise.toString()
+  });
+  gracefulExit(1);
+});
 
 /**
- * Handle worker shutdown
+ * FORTRESS v6.1: Enhanced shutdown handlers with proper cleanup
  */
 process.on('SIGTERM', () => {
-  console.log(`Phoenix Task Worker ${workerId} shutting down`);
-  process.exit(0);
+  console.log(`[INFO] Worker ${workerId}: Received SIGTERM`);
+  gracefulExit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log(`Phoenix Task Worker ${workerId} interrupted`);
-  process.exit(0);
+  console.log(`[INFO] Worker ${workerId}: Received SIGINT`);
+  gracefulExit(0);
+});
+
+// Handle parent process disconnect
+process.on('disconnect', () => {
+  console.log(`[INFO] Worker ${workerId}: Parent process disconnected`);
+  gracefulExit(0);
 });

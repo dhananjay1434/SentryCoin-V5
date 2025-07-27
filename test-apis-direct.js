@@ -8,7 +8,7 @@
 import dotenv from 'dotenv';
 import axios from 'axios';
 
-dotenv.config({ path: '.env.production' });
+dotenv.config();
 
 console.log('🧪 PHOENIX ENGINE v6.0 - DIRECT API TEST');
 console.log('🛡️ Testing all configured API connections...\n');
