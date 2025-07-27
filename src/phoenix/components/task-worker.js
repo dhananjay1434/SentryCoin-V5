@@ -8,6 +8,7 @@
 
 import { parentPort, workerData } from 'worker_threads';
 import axios from 'axios';
+import ResilientAPIClient from './resilient-api-client.js';
 
 const { workerId } = workerData;
 
@@ -15,6 +16,34 @@ const { workerId } = workerData;
 let isShuttingDown = false;
 let activeTask = null;
 const startTime = Date.now();
+
+// CRUCIBLE MANDATE 3: Initialize resilient API client for worker
+const apiClient = new ResilientAPIClient({
+  logger: {
+    info: (key, data) => console.log(`[INFO] Worker ${workerId}:`, key, JSON.stringify(data)),
+    warn: (key, data) => console.warn(`[WARN] Worker ${workerId}:`, key, JSON.stringify(data)),
+    error: (key, data) => console.error(`[ERROR] Worker ${workerId}:`, key, JSON.stringify(data)),
+    debug: (key, data) => console.log(`[DEBUG] Worker ${workerId}:`, key, JSON.stringify(data))
+  },
+  providers: {
+    etherscan: {
+      name: 'etherscan',
+      enabled: true,
+      baseUrl: 'https://api.etherscan.io',
+      headers: {},
+      timeout: 10000,
+      priority: 1
+    },
+    alchemy: {
+      name: 'alchemy',
+      enabled: !!process.env.ALCHEMY_API_KEY,
+      baseUrl: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000,
+      priority: 2
+    }
+  }
+});
 
 /**
  * FORTRESS v6.1: Enhanced error logging with full context
@@ -48,6 +77,11 @@ function gracefulExit(exitCode = 0) {
   // Clean up any active resources
   if (activeTask) {
     console.log(`[WARN] Worker ${workerId}: Terminating with active task: ${activeTask.taskId}`);
+  }
+
+  // CRUCIBLE MANDATE 3: Shutdown resilient API client
+  if (apiClient) {
+    apiClient.shutdown();
   }
 
   // Final status log
@@ -129,14 +163,11 @@ async function handleWhaleBalanceCheck(payload) {
     // Add delay to prevent rate limiting
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    const response = await axios.get('https://api.etherscan.io/api', {
-      params: {
-        module: 'account',
-        action: 'balance',
-        address: whaleAddress,
-        tag: 'latest',
-        apikey: apiKey
-      },
+    // CRUCIBLE MANDATE 3: Use resilient API client with circuit breaker
+    const response = await apiClient.request({
+      url: `/api?module=account&action=balance&address=${whaleAddress}&tag=latest&apikey=${apiKey}`,
+      method: 'GET',
+      providers: ['etherscan'],
       timeout: 15000
     });
 
@@ -148,16 +179,18 @@ async function handleWhaleBalanceCheck(payload) {
     if (response.data.status !== '1') {
       const errorMsg = response.data.message || response.data.result || 'Unknown error';
 
-      // Handle specific error cases
-      if (errorMsg.includes('rate limit')) {
-        throw new Error(`Etherscan API: Rate limit exceeded - ${errorMsg}`);
-      } else if (errorMsg.includes('Invalid API Key')) {
-        throw new Error(`Etherscan API: Invalid API key - ${errorMsg}`);
-      } else if (errorMsg === 'NOTOK') {
-        throw new Error(`Etherscan API: Request failed - Status: ${response.data.status}, Message: ${errorMsg}`);
-      } else {
-        throw new Error(`Etherscan API Error: ${errorMsg}`);
-      }
+      // CRUCIBLE MANDATE 3: Handle API errors gracefully - don't crash workers
+      console.warn(`[WARN] Worker ${workerId}: Etherscan API business error: ${errorMsg}`);
+
+      return {
+        whaleAddress,
+        balanceETH: 0,
+        balanceUSD: 0,
+        error: `Etherscan API Error: ${errorMsg}`,
+        errorType: 'API_BUSINESS_ERROR',
+        timestamp: new Date().toISOString(),
+        success: false
+      };
     }
 
     const balanceWei = response.data.result;
@@ -326,30 +359,37 @@ async function handleApiHealthCheck(payload) {
   
   try {
     const startTime = Date.now();
-    
-    const response = await axios.get(endpoint, {
-      timeout,
+
+    // CRUCIBLE MANDATE 3: Use resilient API client for health checks
+    const response = await apiClient.request({
+      url: endpoint,
+      method: 'GET',
       headers: {
         'User-Agent': 'Phoenix-Engine-v6-HealthCheck'
-      }
+      },
+      timeout
     });
-    
+
     const latency = Date.now() - startTime;
-    
+
     return {
       apiName,
-      status: response.status === 200 ? 'HEALTHY' : 'DEGRADED',
+      status: 'HEALTHY',
       latency,
-      responseCode: response.status,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      resilientClient: true
     };
-    
+
   } catch (error) {
+    // CRUCIBLE MANDATE 3: Graceful error handling - don't crash worker
+    console.warn(`[WARN] Worker ${workerId}: API health check failed for ${apiName}: ${error.message}`);
+
     return {
       apiName,
       status: 'UNHEALTHY',
       error: error.message,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      resilientClient: true
     };
   }
 }

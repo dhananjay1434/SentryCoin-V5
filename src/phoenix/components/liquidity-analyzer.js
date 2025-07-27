@@ -100,7 +100,7 @@ export default class LiquidityAnalyzer extends EventEmitter {
       this.updateDLSHistory(dls, timestamp);
 
       // Calculate current percentile position (adaptive threshold)
-      const percentile = this.calculateDLSPercentile(dls);
+      const percentile = this.calculatePercentile(dls);
 
       this.stats.dlsCalculations++;
 
@@ -293,7 +293,7 @@ export default class LiquidityAnalyzer extends EventEmitter {
     });
     
     // Maintain history length
-    if (this.dlsHistory.length > this.maxHistoryLength) {
+    if (this.dlsHistory.length > this.maxHistorySize) {
       this.dlsHistory.shift();
     }
     

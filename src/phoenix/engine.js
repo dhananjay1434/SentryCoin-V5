@@ -15,6 +15,7 @@ import TaskScheduler from './components/task-scheduler.js';
 import StatefulLogger from './components/stateful-logger.js';
 import TelegramReporter from './components/telegram-reporter.js';
 import MarketClassifier from './components/market-classifier.js';
+import ResilientAPIClient from './components/resilient-api-client.js';
 import { getISTTime } from '../utils/index.js';
 
 export default class PhoenixEngine extends EventEmitter {
@@ -43,17 +44,29 @@ export default class PhoenixEngine extends EventEmitter {
     this.derivativesMonitor = null;   // Mandate 4
     this.taskScheduler = null;        // Mandate 5
     this.telegramReporter = null;     // Notifications
+    this.apiClient = null;            // Mandate 3 (Resilience)
     
     // System state
     this.isRunning = false;
     this.startTime = null;
+    // CRUCIBLE MANDATE 4: Realistic status reporting
     this.systemHealth = {
-      liquidityAnalyzer: 'OFFLINE',
-      mempoolStreamer: 'OFFLINE',
-      marketClassifier: 'OFFLINE',
-      derivativesMonitor: 'OFFLINE',
-      taskScheduler: 'OFFLINE',
-      telegramReporter: 'OFFLINE'
+      liquidityAnalyzer: 'INITIALIZING',
+      mempoolStreamer: 'INITIALIZING',
+      marketClassifier: 'INITIALIZING',
+      derivativesMonitor: 'INITIALIZING',
+      taskScheduler: 'INITIALIZING',
+      telegramReporter: 'INITIALIZING'
+    };
+
+    // CRUCIBLE MANDATE 4: Component activity tracking for STALLED detection
+    this.lastActivity = {
+      liquidityAnalyzer: Date.now(),
+      mempoolStreamer: Date.now(),
+      marketClassifier: Date.now(),
+      derivativesMonitor: Date.now(),
+      taskScheduler: Date.now(),
+      telegramReporter: Date.now()
     };
     
     // Performance metrics
@@ -150,7 +163,31 @@ export default class PhoenixEngine extends EventEmitter {
       await this.taskScheduler.initialize();
       this.systemHealth.taskScheduler = 'ONLINE';
       this.logger.info('mandate_5_ready', 'Microservice task scheduler operational');
-      
+
+      // Initialize Resilient API Client (Mandate 3)
+      this.apiClient = new ResilientAPIClient({
+        logger: this.logger,
+        providers: {
+          binance: {
+            name: 'binance',
+            enabled: true,
+            baseUrl: 'https://api.binance.com',
+            headers: {},
+            timeout: 10000,
+            priority: 1
+          },
+          binanceBackup: {
+            name: 'binance-backup',
+            enabled: true,
+            baseUrl: 'https://api1.binance.com',
+            headers: {},
+            timeout: 10000,
+            priority: 2
+          }
+        }
+      });
+      this.logger.info('mandate_3_ready', 'Resilient API client with circuit breaker operational');
+
       // Setup component event handlers
       this.setupEventHandlers();
       
@@ -177,7 +214,10 @@ export default class PhoenixEngine extends EventEmitter {
     // Whale intent detection from mempool streamer
     this.mempoolStreamer.on('WHALE_INTENT_DETECTED', async (intent) => {
       this.metrics.whaleIntentsDetected++;
-      
+
+      // CRUCIBLE MANDATE 4: Track component activity
+      this.updateComponentActivity('mempoolStreamer', true, false);
+
       this.logger.warn('whale_intent_detected', {
         whaleAddress: intent.whaleAddress,
         estimatedValue: intent.estimatedValue,
@@ -203,12 +243,25 @@ export default class PhoenixEngine extends EventEmitter {
     // Derivatives updates from monitor
     this.derivativesMonitor.on('DERIVATIVES_UPDATE', (update) => {
       this.metrics.derivativesUpdates++;
-      
+
+      // CRUCIBLE MANDATE 4: Track component activity
+      this.updateComponentActivity('derivativesMonitor', true, false);
+
+      // RED TEAM MANDATE 3: Integrate derivatives alerts into Market Classifier
+      if (this.marketClassifier && update.type === 'OI_SPIKE') {
+        this.marketClassifier.processDerivativesAlert(update.data);
+        this.logger.info('derivatives_alert_integrated', {
+          alertType: update.type,
+          exchange: update.exchange,
+          message: 'OI_SPIKE alert sent to Market Classifier for threshold adjustment'
+        });
+      }
+
       this.logger.debug('derivatives_update', {
         type: update.type,
         exchange: update.exchange
       });
-      
+
       // Check for significant derivatives events
       if (update.type === 'OI_SPIKE' || update.type === 'FUNDING_SPIKE') {
         this.emit('DERIVATIVES_ALERT', update);
@@ -218,7 +271,10 @@ export default class PhoenixEngine extends EventEmitter {
     // Task completion from scheduler
     this.taskScheduler.on('TASK_COMPLETED', (task) => {
       this.metrics.tasksExecuted++;
-      
+
+      // CRUCIBLE MANDATE 4: Track component activity
+      this.updateComponentActivity('taskScheduler', true, false);
+
       this.logger.debug('task_completed', {
         taskId: task.id,
         type: task.type,
@@ -229,7 +285,10 @@ export default class PhoenixEngine extends EventEmitter {
     // Liquidity analysis results
     this.liquidityAnalyzer.on('LIQUIDITY_ANALYSIS', (analysis) => {
       this.metrics.liquidityValidations++;
-      
+
+      // CRUCIBLE MANDATE 4: Track component activity
+      this.updateComponentActivity('liquidityAnalyzer', true, false);
+
       if (analysis.regime === 'CRITICAL') {
         this.logger.warn('critical_liquidity_detected', analysis);
       }
@@ -280,7 +339,7 @@ export default class PhoenixEngine extends EventEmitter {
       // Send startup notification
       await this.telegramReporter.sendAlert({
         type: 'SYSTEM_STARTUP',
-        title: '🔥 PHOENIX ENGINE v6.0 OPERATIONAL',
+        title: 'SentryCoin v6.0 Operational',
         message: `System Status: ALL MANDATES ACTIVE\nSymbol: ${this.config.symbol}\nMode: ${this.config.paperTrading ? 'PAPER TRADING' : 'LIVE TRADING'}\nTime: ${getISTTime()}`,
         priority: 'NORMAL'
       });
@@ -291,10 +350,11 @@ export default class PhoenixEngine extends EventEmitter {
         startTime: getISTTime()
       });
       
-      console.log('\n🔥 PHOENIX ENGINE v6.0 OPERATIONAL');
-      console.log('🛡️ All Red Team Mandates Active');
-      console.log('⚡ Informational Supremacy Confirmed');
-      console.log('🎯 Ready to Hunt\n');
+      // RED TEAM MANDATE 4: Professional status reporting only
+      console.log('\nSentryCoin v6.0 Engine Started');
+      console.log('📊 System Status: Components initialized');
+      console.log('⚙️ Mode: ' + (this.config.paperTrading ? 'Paper Trading' : 'Live Trading'));
+      console.log('📡 Real-time Feeds: ' + (this.config.enableRealTimeFeeds ? 'Enabled' : 'Disabled') + '\n');
       
       return true;
       
@@ -311,6 +371,11 @@ export default class PhoenixEngine extends EventEmitter {
    * Schedule periodic maintenance tasks
    */
   schedulePeriodicTasks() {
+    // CRUCIBLE MANDATE 2: Market classification every 30 seconds to feed the Glass Box
+    setInterval(() => {
+      this.performMarketClassification();
+    }, 30000);
+
     // FORTRESS v6.1: Engine heartbeat every 60 seconds
     setInterval(() => {
       this.emitHeartbeat();
@@ -349,23 +414,154 @@ export default class PhoenixEngine extends EventEmitter {
   }
 
   /**
+   * CRUCIBLE MANDATE 2: Perform market classification with real market data
+   */
+  async performMarketClassification() {
+    if (!this.marketClassifier || this.systemHealth.marketClassifier !== 'ONLINE') {
+      return;
+    }
+
+    try {
+      // Fetch current market data from Binance
+      const marketData = await this.fetchMarketData();
+
+      if (marketData) {
+        // Perform classification with real data
+        const classification = this.marketClassifier.classifyMarketCondition(marketData);
+
+        // CRUCIBLE MANDATE 4: Track component activity
+        this.updateComponentActivity('marketClassifier', true, false);
+
+        if (classification) {
+          this.logger.info('market_regime_detected', {
+            regime: classification.type,
+            confidence: classification.confidence,
+            timestamp: classification.timestamp
+          });
+        }
+      }
+    } catch (error) {
+      this.logger.error('market_classification_failed', {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  /**
+   * CRUCIBLE MANDATE 2: Fetch real market data for classification
+   */
+  async fetchMarketData() {
+    try {
+      // CRUCIBLE MANDATE 3: Use resilient API client with circuit breaker
+
+      // Fetch order book data with resilience
+      const orderBook = await this.apiClient.request({
+        url: `/api/v3/depth?symbol=${this.config.symbol}&limit=50`,
+        method: 'GET',
+        providers: ['binance', 'binanceBackup']
+      });
+
+      // Fetch 24hr ticker for price and momentum with resilience
+      const ticker = await this.apiClient.request({
+        url: `/api/v3/ticker/24hr?symbol=${this.config.symbol}`,
+        method: 'GET',
+        providers: ['binance', 'binanceBackup']
+      });
+
+      // Calculate basic metrics
+      const price = parseFloat(ticker.lastPrice);
+      const momentum = parseFloat(ticker.priceChangePercent);
+
+      // Calculate pressure (simplified ask/bid ratio)
+      const topBid = parseFloat(orderBook.bids[0][0]);
+      const topAsk = parseFloat(orderBook.asks[0][0]);
+      const pressure = topAsk / topBid;
+
+      // Use liquidity analyzer if available, otherwise calculate basic DLS
+      let dlsScore = 50; // Default neutral score
+      if (this.liquidityAnalyzer) {
+        const analysis = await this.liquidityAnalyzer.analyzeOrderBook({
+          bids: orderBook.bids,
+          asks: orderBook.asks,
+          timestamp: Date.now()
+        });
+        dlsScore = analysis.dlsScore || 50;
+      }
+
+      return {
+        price,
+        dlsScore,
+        pressure,
+        momentum,
+        timestamp: Date.now()
+      };
+
+    } catch (error) {
+      this.logger.warn('market_data_fetch_failed', {
+        error: error.message,
+        symbol: this.config.symbol
+      });
+      return null;
+    }
+  }
+
+  /**
+   * CRUCIBLE MANDATE 4: Update component activity and realistic status
+   */
+  updateComponentActivity(componentName, isActive = true, hasErrors = false) {
+    this.lastActivity[componentName] = Date.now();
+
+    if (hasErrors) {
+      this.systemHealth[componentName] = 'DEGRADED';
+    } else if (isActive) {
+      this.systemHealth[componentName] = 'ONLINE';
+    }
+  }
+
+  /**
+   * CRUCIBLE MANDATE 4: Check for stalled components
+   */
+  checkForStalledComponents() {
+    const now = Date.now();
+    const stalledThreshold = 120000; // 2 minutes
+
+    for (const [component, lastActivity] of Object.entries(this.lastActivity)) {
+      if (now - lastActivity > stalledThreshold && this.systemHealth[component] === 'ONLINE') {
+        this.systemHealth[component] = 'STALLED';
+        this.logger.warn('component_stalled', {
+          component,
+          lastActivity: new Date(lastActivity).toISOString(),
+          stalledDuration: now - lastActivity
+        });
+      }
+    }
+  }
+
+  /**
    * FORTRESS v6.1: Emit engine heartbeat
    */
   emitHeartbeat() {
-    const activeStrategies = [];
-    if (this.systemHealth.marketClassifier === 'ONLINE') activeStrategies.push('MARKET_CLASSIFIER');
-    if (this.systemHealth.mempoolStreamer === 'ONLINE') activeStrategies.push('WHALE_MONITOR');
-    if (this.systemHealth.derivativesMonitor === 'ONLINE') activeStrategies.push('DERIVATIVES_MONITOR');
+    // CRUCIBLE MANDATE 4: Check for stalled components before reporting
+    this.checkForStalledComponents();
+
+    const activeComponents = Object.values(this.systemHealth).filter(status => status === 'ONLINE').length;
+    const totalComponents = Object.keys(this.systemHealth).length;
 
     const heartbeat = {
       logType: 'HEARTBEAT',
       status: this.isRunning ? 'OPERATIONAL' : 'OFFLINE',
-      activeStrategies,
-      ethUnwindState: 'MONITORING', // Placeholder for future ETH_UNWIND strategy
-      activePositions: 0, // Placeholder for position tracking
       timestamp: new Date().toISOString(),
       uptime: Math.floor((Date.now() - this.startTime) / 1000),
-      systemHealth: this.systemHealth
+      systemHealth: this.systemHealth,
+      healthSummary: `${activeComponents}/${totalComponents} components online`,
+      // CRUCIBLE MANDATE 4: Remove fantasy metrics, report real data
+      metrics: {
+        whaleIntents: this.metrics.whaleIntentsDetected,
+        liquidityValidations: this.metrics.liquidityValidations,
+        derivativesUpdates: this.metrics.derivativesUpdates,
+        tasksExecuted: this.metrics.tasksExecuted
+      }
     };
 
     this.logger.info('engine_heartbeat', heartbeat);
@@ -475,6 +671,16 @@ export default class PhoenixEngine extends EventEmitter {
         await this.derivativesMonitor.stop();
       }
 
+      // CRUCIBLE MANDATE 2: Shutdown market classifier
+      if (this.marketClassifier) {
+        this.marketClassifier.shutdown();
+      }
+
+      // CRUCIBLE MANDATE 3: Shutdown resilient API client
+      if (this.apiClient) {
+        this.apiClient.shutdown();
+      }
+
       // Phase 5: Stop Express server
       this.logger.info('shutdown_phase_5', 'Stopping Express server');
       if (this.server) {
@@ -491,17 +697,19 @@ export default class PhoenixEngine extends EventEmitter {
       await this.telegramReporter.sendAlert({
         type: 'SYSTEM_SHUTDOWN',
         title: '🛑 PHOENIX ENGINE SHUTDOWN',
-        message: `System shutdown complete\nUptime: ${Math.floor((Date.now() - this.startTime) / 1000)}s\nAll components terminated cleanly`,
+        message: `System shutdown initiated\nUptime: ${Math.floor((Date.now() - this.startTime) / 1000)}s\nShutdown sequence completed`,
         priority: 'NORMAL'
       });
 
       this.isRunning = false;
 
       // Phase 7: Final logger shutdown
-      this.logger.info('shutdown_complete', 'All components terminated cleanly');
+      // CRUCIBLE MANDATE 4: Report factual shutdown status, not false claims
+      this.logger.info('shutdown_complete', 'Shutdown sequence completed');
       this.logger.shutdown();
 
-      console.log('🔥 Phoenix Engine shutdown complete - zero zombie processes');
+      // RED TEAM MANDATE 4: Professional status reporting only
+      console.log('SentryCoin Engine shutdown sequence completed');
 
     } catch (error) {
       console.error('❌ Error during shutdown:', error.message);

@@ -24,9 +24,8 @@ class PhoenixProductionLauncher {
     this.isProduction = process.env.NODE_ENV === 'production';
     this.port = process.env.PORT || 10000;
 
-    console.log('🔥 PHOENIX ENGINE v6.0 - PRODUCTION LAUNCHER');
-    console.log('🛡️ OPERATION CHIMERA - CLEAN DEPLOYMENT');
-    console.log('⚡ All components reorganized and properly connected\n');
+    console.log('SentryCoin v6.0 - Production Launcher');
+    console.log('Initializing system components...\n');
   }
 
   /**
@@ -253,7 +252,7 @@ class PhoenixProductionLauncher {
         mandates: metrics?.mandatesImplemented || 0,
         uptime: metrics?.uptime || 0,
         timestamp: new Date().toISOString(),
-        message: '🔥 Phoenix Engine v6.0 - All Red Team Mandates Resolved'
+        message: 'SentryCoin v6.0 - System Status'
       });
     });
 
@@ -317,7 +316,7 @@ class PhoenixProductionLauncher {
    * Initialize Phoenix Engine
    */
   async initializePhoenixEngine() {
-    console.log('\n🔥 Initializing Phoenix Engine v6.0...');
+    console.log('\nInitializing SentryCoin Engine v6.0...');
     
     const config = {
       symbol: process.env.SYMBOL || 'ETHUSDT',
@@ -380,31 +379,58 @@ class PhoenixProductionLauncher {
   }
 
   /**
+   * CRUCIBLE MANDATE 4: Get realistic system health summary
+   */
+  getSystemHealthSummary() {
+    if (!this.phoenixEngine) return 'INITIALIZING';
+
+    const health = this.phoenixEngine.systemHealth;
+    const onlineCount = Object.values(health).filter(status => status === 'ONLINE').length;
+    const totalComponents = Object.keys(health).length;
+
+    if (onlineCount === totalComponents) return 'ALL_ONLINE';
+    if (onlineCount === 0) return 'ALL_OFFLINE';
+    return `PARTIAL (${onlineCount}/${totalComponents})`;
+  }
+
+  /**
+   * CRUCIBLE MANDATE 4: Get realistic component status
+   */
+  getComponentStatus(componentName) {
+    if (!this.phoenixEngine) return 'INITIALIZING';
+
+    const status = this.phoenixEngine.systemHealth[componentName];
+    switch (status) {
+      case 'ONLINE': return 'ONLINE';
+      case 'LIMITED': return 'DEGRADED';
+      case 'OFFLINE': return 'OFFLINE';
+      default: return 'UNKNOWN';
+    }
+  }
+
+  /**
    * Display operational status
    */
   displayOperationalStatus() {
     const metrics = this.phoenixEngine.getMetrics();
     
-    console.log('\n' + '='.repeat(80));
-    console.log('🔥 PHOENIX ENGINE v6.0 - OPERATIONAL STATUS');
-    console.log('='.repeat(80));
-    console.log(`🛡️ Version: ${metrics.version}`);
-    console.log(`⚡ Strategic Viability: ${metrics.strategicViability}`);
-    console.log(`🎯 Red Team Mandates: ${metrics.mandatesImplemented}/5 RESOLVED`);
-    console.log(`🚀 System Health: ALL COMPONENTS ONLINE`);
+    // CRUCIBLE MANDATE 4: Remove marketing slogans, report factual status
+    console.log('\n' + '='.repeat(60));
+    console.log('SENTRYCOIN v6.0 - STATUS REPORT');
+    console.log('='.repeat(60));
+    console.log(`📊 Version: ${metrics.version}`);
+    console.log(`🎯 Mandates Implemented: ${metrics.mandatesImplemented}/5`);
+    console.log(`⚙️ System Health: ${this.getSystemHealthSummary()}`);
     console.log('');
-    console.log('🎯 OPERATIONAL CAPABILITIES:');
-    console.log('   ⚡ Real-time whale intent detection: ACTIVE');
-    console.log('   🧠 Dynamic liquidity analysis: ACTIVE');
-    console.log('   📊 Sub-second derivatives feed: ACTIVE');
-    console.log('   🔄 Microservice task scheduler: ACTIVE');
-    console.log('   📝 Stateful logging system: ACTIVE');
-    console.log('   📱 Telegram notifications: ACTIVE');
+    console.log('📋 COMPONENT STATUS:');
+    console.log(`   📡 Whale monitoring: ${this.getComponentStatus('mempoolStreamer')}`);
+    console.log(`   🧠 Liquidity analysis: ${this.getComponentStatus('liquidityAnalyzer')}`);
+    console.log(`   📊 Derivatives feed: ${this.getComponentStatus('derivativesMonitor')}`);
+    console.log(`   🔄 Task scheduler: ${this.getComponentStatus('taskScheduler')}`);
+    console.log(`   📝 Logging system: ${this.getComponentStatus('statefulLogger')}`);
+    console.log(`   📱 Notifications: ${this.getComponentStatus('telegramReporter')}`);
     console.log('');
-    console.log('🛡️ OPERATIONAL DOCTRINE: PRE-COGNITIVE EVENT-DRIVEN HUNTER');
-    console.log('🎯 INFORMATIONAL SUPREMACY: CONFIRMED');
-    console.log('⚔️ MISSION STATUS: READY TO HUNT');
-    console.log('='.repeat(80));
+    console.log('='.repeat(60));
     
     if (process.env.PAPER_TRADING !== 'false') {
       console.log('📋 MODE: PAPER TRADING (Safe simulation mode)');
@@ -516,11 +542,11 @@ class PhoenixProductionLauncher {
       // Step 7: Start health monitoring
       this.startHealthMonitoring();
       
-      console.log('\n🎉 PHOENIX ENGINE v6.0: LAUNCH SUCCESSFUL');
-      console.log('🔥 THE PHOENIX HAS RISEN');
-      console.log('🛡️ STRATEGIC VIABILITY: CONFIRMED');
-      console.log('⚔️ READY TO HUNT\n');
-      
+      // CRUCIBLE MANDATE 4: Remove marketing slogans, report factual status
+      console.log('\n✅ SENTRYCOIN v6.0: STARTUP COMPLETE');
+      console.log('📊 All components initialized successfully');
+      console.log('⚙️ System operational and monitoring\n');
+
       console.log('💓 System running - use Ctrl+C to shutdown gracefully');
       
     } catch (error) {
