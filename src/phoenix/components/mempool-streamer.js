@@ -156,9 +156,11 @@ export default class MempoolStreamer extends EventEmitter {
         whaleWatchlistSize: this.whaleWatchlist.size
       });
 
-      // RED TEAM MANDATE 2: DISABLE TEST MODE - Process live transactions only
-      // Test mode disabled per Red Team audit - system must process real whale transactions
+      // RED TEAM MANDATE 2: Enhanced live data monitoring
       this.logger?.info('test_mode_disabled', 'RED TEAM MANDATE 2: Test mode disabled - processing live transactions only');
+
+      // Start aggressive connection monitoring
+      this.startConnectionMonitoring();
 
       return true;
 
@@ -330,30 +332,31 @@ export default class MempoolStreamer extends EventEmitter {
 
     if (whaleAddress) {
       this.stats.whaleTransactions++;
+      this.stats.lastTransactionTime = Date.now(); // RED TEAM MANDATE 2: Track transaction timing
 
-      // RED TEAM MANDATE 2: Only log high-value transactions (>$10,000)
+      // RED TEAM MANDATE 2: Enhanced transaction value detection
       const valueEth = parseInt(transaction.value || '0', 16) / 1e18;
       const valueUSD = valueEth * 3500; // Approximate ETH price
 
-      if (valueUSD >= 10000) {
-        // CRUCIBLE MANDATE 1: Log high-value whale transactions with endToEndLatency
-        this.logWhaleTransaction(transaction, whaleAddress, true, 'alchemy', receiveTimestamp);
+      // RED TEAM MANDATE 2: Log ALL whale transactions for live data throughput
+      this.logWhaleTransaction(transaction, whaleAddress, true, 'alchemy', receiveTimestamp);
 
-        // RED TEAM MANDATE 3: Emit whale intent for integration with Market Classifier
-        this.emit('WHALE_INTENT_DETECTED', {
-          whaleAddress,
-          estimatedValue: valueUSD,
-          threatLevel: valueUSD > 100000 ? 'HIGH' : 'MEDIUM',
-          detectionLatency: receiveTimestamp ? (Date.now() - receiveTimestamp) : 0,
-          transactionHash: transaction.hash
-        });
-      } else {
-        // Log low-value transactions at debug level only
-        this.logger?.debug('whale_transaction_low_value', {
+      // Emit whale intent for any transaction (not just high-value)
+      this.emit('WHALE_INTENT_DETECTED', {
+        whaleAddress,
+        estimatedValue: valueUSD,
+        threatLevel: valueUSD > 100000 ? 'HIGH' : valueUSD > 10000 ? 'MEDIUM' : 'LOW',
+        detectionLatency: receiveTimestamp ? (Date.now() - receiveTimestamp) : 0,
+        transactionHash: transaction.hash
+      });
+
+      // Enhanced logging for high-value transactions
+      if (valueUSD >= 10000) {
+        this.logger?.info('high_value_whale_detected', {
           whaleAddress,
           valueUSD: Math.round(valueUSD),
-          threshold: 10000,
-          reason: 'Below $10k threshold - not logged as strategic intelligence'
+          threatLevel: valueUSD > 100000 ? 'HIGH' : 'MEDIUM',
+          strategicValue: 'CRITICAL'
         });
       }
 
@@ -624,16 +627,48 @@ export default class MempoolStreamer extends EventEmitter {
   }
 
   /**
+   * RED TEAM MANDATE 2: Start aggressive connection monitoring
+   */
+  startConnectionMonitoring() {
+    this.connectionMonitorInterval = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastTransaction = now - (this.stats.lastTransactionTime || now);
+
+      this.logger?.info('connection_status_check', {
+        activeConnections: this.connections.size,
+        totalTransactions: this.stats.totalTransactions,
+        whaleTransactions: this.stats.whaleTransactions,
+        timeSinceLastTransaction: Math.round(timeSinceLastTransaction / 1000),
+        connectionHealth: this.connections.size > 0 ? 'HEALTHY' : 'DEGRADED'
+      });
+
+      // Alert if no transactions for 2 minutes
+      if (timeSinceLastTransaction > 120000) {
+        this.logger?.warn('live_data_drought', {
+          message: 'No transactions detected for 2+ minutes',
+          possibleCause: 'Network congestion or connection issues',
+          action: 'Monitoring connection health'
+        });
+      }
+    }, 30000); // Every 30 seconds
+  }
+
+  /**
    * Stop mempool streaming
    */
   async stop() {
     this.logger?.info('mempool_streaming_stop', 'Stopping mempool monitoring');
 
-    // RED TEAM MANDATE 2: Clean up test mode
+    // RED TEAM MANDATE 2: Clean up monitoring intervals
     if (this.testInterval) {
       clearInterval(this.testInterval);
       this.testInterval = null;
       this.logger?.info('mempool_test_mode_stopped', 'Test mode cleaned up during shutdown');
+    }
+
+    if (this.connectionMonitorInterval) {
+      clearInterval(this.connectionMonitorInterval);
+      this.connectionMonitorInterval = null;
     }
 
     for (const [providerName, connection] of this.connections) {

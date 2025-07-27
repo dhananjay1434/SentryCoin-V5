@@ -68,6 +68,21 @@ export default class MarketClassifier extends EventEmitter {
   }
 
   /**
+   * RED TEAM MANDATE 1: Fix floating-point precision comparison
+   */
+  floatCompare(a, b, epsilon = 1e-10) {
+    return Math.abs(a - b) < epsilon;
+  }
+
+  floatGreaterEqual(a, b, epsilon = 1e-10) {
+    return a > b || this.floatCompare(a, b, epsilon);
+  }
+
+  floatLessEqual(a, b, epsilon = 1e-10) {
+    return a < b || this.floatCompare(a, b, epsilon);
+  }
+
+  /**
    * RED TEAM MANDATE 3: Process derivatives alert to adjust thresholds
    */
   processDerivativesAlert(alert) {
@@ -156,7 +171,7 @@ export default class MarketClassifier extends EventEmitter {
     }
 
     return {
-      threshold: Math.max(30, adjustedThreshold), // Minimum threshold of 30
+      threshold: Math.max(10, adjustedThreshold), // Minimum threshold of 10 (allow aggressive reduction)
       baseThreshold,
       adjustments: activeAdjustments,
       totalReduction: baseThreshold - adjustedThreshold
@@ -291,23 +306,36 @@ export default class MarketClassifier extends EventEmitter {
   evaluateCascadeConditions(pressure, dlsScore, momentum, dlsThreshold = 75) {
     const failures = [];
 
-    if (pressure < this.thresholds.cascade.pressure) {
+    // RED TEAM MANDATE 1: Fix floating-point precision comparison
+    const pressurePass = this.floatGreaterEqual(pressure, this.thresholds.cascade.pressure);
+    const liquidityPass = dlsScore >= dlsThreshold;
+    const momentumPass = momentum <= this.thresholds.cascade.momentum;
+
+    if (!pressurePass) {
       failures.push('Pressure');
     }
-    if (dlsScore < dlsThreshold) { // RED TEAM MANDATE 3: Dynamic DLS threshold
+    if (!liquidityPass) {
       failures.push('Liquidity');
     }
-    if (momentum > this.thresholds.cascade.momentum) {
+    if (!momentumPass) {
       failures.push('Momentum');
     }
+
+    // Enhanced debugging for floating-point issues
+    this.logger?.debug('cascade_evaluation_debug', {
+      pressure: { value: pressure, threshold: this.thresholds.cascade.pressure, pass: pressurePass, diff: pressure - this.thresholds.cascade.pressure },
+      liquidity: { value: dlsScore, threshold: dlsThreshold, pass: liquidityPass },
+      momentum: { value: momentum, threshold: this.thresholds.cascade.momentum, pass: momentumPass },
+      failures: failures
+    });
 
     return {
       isValid: failures.length === 0,
       failures,
       details: {
-        pressure: { value: pressure, threshold: this.thresholds.cascade.pressure, pass: pressure >= this.thresholds.cascade.pressure },
-        liquidity: { value: dlsScore, threshold: dlsThreshold, pass: dlsScore >= dlsThreshold },
-        momentum: { value: momentum, threshold: this.thresholds.cascade.momentum, pass: momentum <= this.thresholds.cascade.momentum }
+        pressure: { value: pressure, threshold: this.thresholds.cascade.pressure, pass: pressurePass },
+        liquidity: { value: dlsScore, threshold: dlsThreshold, pass: liquidityPass },
+        momentum: { value: momentum, threshold: this.thresholds.cascade.momentum, pass: momentumPass }
       }
     };
   }
@@ -317,14 +345,19 @@ export default class MarketClassifier extends EventEmitter {
    */
   evaluateCoilConditions(pressure, dlsScore, momentum) {
     const failures = [];
-    
-    if (pressure > this.thresholds.coil.pressure) {
+
+    // RED TEAM MANDATE 1: Fix floating-point precision comparison
+    const pressurePass = this.floatLessEqual(pressure, this.thresholds.coil.pressure);
+    const liquidityPass = dlsScore >= 85;
+    const momentumPass = momentum >= this.thresholds.coil.momentumMin && momentum <= this.thresholds.coil.momentumMax;
+
+    if (!pressurePass) {
       failures.push('Pressure');
     }
-    if (dlsScore < 85) { // Higher threshold for COIL
+    if (!liquidityPass) {
       failures.push('Liquidity');
     }
-    if (momentum < this.thresholds.coil.momentumMin || momentum > this.thresholds.coil.momentumMax) {
+    if (!momentumPass) {
       failures.push('Momentum');
     }
 
@@ -332,9 +365,9 @@ export default class MarketClassifier extends EventEmitter {
       isValid: failures.length === 0,
       failures,
       details: {
-        pressure: { value: pressure, threshold: this.thresholds.coil.pressure, pass: pressure <= this.thresholds.coil.pressure },
-        liquidity: { value: dlsScore, threshold: 85, pass: dlsScore >= 85 },
-        momentum: { value: momentum, thresholdMin: this.thresholds.coil.momentumMin, thresholdMax: this.thresholds.coil.momentumMax, pass: momentum >= this.thresholds.coil.momentumMin && momentum <= this.thresholds.coil.momentumMax }
+        pressure: { value: pressure, threshold: this.thresholds.coil.pressure, pass: pressurePass },
+        liquidity: { value: dlsScore, threshold: 85, pass: liquidityPass },
+        momentum: { value: momentum, thresholdMin: this.thresholds.coil.momentumMin, thresholdMax: this.thresholds.coil.momentumMax, pass: momentumPass }
       }
     };
   }
@@ -344,14 +377,19 @@ export default class MarketClassifier extends EventEmitter {
    */
   evaluateShakeoutConditions(pressure, dlsScore, momentum) {
     const failures = [];
-    
-    if (pressure > this.thresholds.shakeout.pressure) {
+
+    // RED TEAM MANDATE 1: Fix floating-point precision comparison
+    const pressurePass = this.floatLessEqual(pressure, this.thresholds.shakeout.pressure);
+    const liquidityPass = dlsScore >= 80;
+    const momentumPass = momentum <= this.thresholds.shakeout.momentum;
+
+    if (!pressurePass) {
       failures.push('Pressure');
     }
-    if (dlsScore < 80) { // Medium threshold for SHAKEOUT
+    if (!liquidityPass) {
       failures.push('Liquidity');
     }
-    if (momentum > this.thresholds.shakeout.momentum) {
+    if (!momentumPass) {
       failures.push('Momentum');
     }
 
@@ -359,9 +397,9 @@ export default class MarketClassifier extends EventEmitter {
       isValid: failures.length === 0,
       failures,
       details: {
-        pressure: { value: pressure, threshold: this.thresholds.shakeout.pressure, pass: pressure <= this.thresholds.shakeout.pressure },
-        liquidity: { value: dlsScore, threshold: 80, pass: dlsScore >= 80 },
-        momentum: { value: momentum, threshold: this.thresholds.shakeout.momentum, pass: momentum <= this.thresholds.shakeout.momentum }
+        pressure: { value: pressure, threshold: this.thresholds.shakeout.pressure, pass: pressurePass },
+        liquidity: { value: dlsScore, threshold: 80, pass: liquidityPass },
+        momentum: { value: momentum, threshold: this.thresholds.shakeout.momentum, pass: momentumPass }
       }
     };
   }

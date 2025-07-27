@@ -1,19 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * SentryCoin v6.0 - Phoenix Engine Production Launcher
- * 
- * OPERATION CHIMERA - CLEAN PRODUCTION DEPLOYMENT
- * 
- * This is the main production entry point for the reorganized
- * Phoenix Engine with all components properly connected.
+ * SentryCoin v6.0 - Production Launcher
+ *
+ * Main production entry point for the trading engine
+ * with all components properly connected.
  */
 
 import dotenv from 'dotenv';
 import express from 'express';
 import PhoenixEngine from './src/phoenix/engine.js';
 
-// Load Phoenix v6.1 Fortress configuration
+// Load configuration
 dotenv.config();
 
 class PhoenixProductionLauncher {
@@ -91,7 +89,7 @@ class PhoenixProductionLauncher {
       });
     });
 
-    // Webhook endpoint for whale transactions (Project Fortress v6.1)
+    // Webhook endpoint for whale transactions
     this.expressApp.post('/webhook/whale-transactions', express.json(), (req, res) => {
       try {
         const { matchingTransactions, matchingReceipts } = req.body;
@@ -171,7 +169,7 @@ class PhoenixProductionLauncher {
 
         const { matchingTransactions, matchingReceipts } = req.body;
 
-        console.log(`[INFO] Fortress Webhook: ${matchingTransactions?.length || 0} transactions, ${matchingReceipts?.length || 0} receipts`);
+        console.log(`[INFO] Webhook: ${matchingTransactions?.length || 0} transactions, ${matchingReceipts?.length || 0} receipts`);
 
         let processedCount = 0;
 
@@ -229,11 +227,11 @@ class PhoenixProductionLauncher {
             receipts: matchingReceipts?.length || 0,
             totalProcessed: processedCount
           },
-          fortress: 'WHALE_INTELLIGENCE_RECEIVED'
+          status: 'processed'
         });
 
       } catch (error) {
-        console.error('[ERROR] Fortress webhook processing failed:', error.message);
+        console.error('[ERROR] Webhook processing failed:', error.message);
         res.status(500).json({
           error: 'Webhook processing failed',
           message: error.message,
@@ -246,7 +244,7 @@ class PhoenixProductionLauncher {
     this.expressApp.get('/', (req, res) => {
       const metrics = this.phoenixEngine ? this.phoenixEngine.getMetrics() : null;
       res.json({
-        service: 'SentryCoin v6.0 Phoenix Engine',
+        service: 'SentryCoin v6.0 Trading Engine',
         version: '6.0.0',
         status: this.phoenixEngine?.isRunning ? 'operational' : 'initializing',
         mandates: metrics?.mandatesImplemented || 0,
@@ -301,7 +299,7 @@ class PhoenixProductionLauncher {
         if (err) {
           reject(err);
         } else {
-          console.log(`🌐 Phoenix Engine API server running on port ${this.port}`);
+          console.log(`🌐 API server running on port ${this.port}`);
           console.log(`📡 Endpoints:`);
           console.log(`   Health: http://localhost:${this.port}/health`);
           console.log(`   Status: http://localhost:${this.port}/status`);
@@ -334,7 +332,7 @@ class PhoenixProductionLauncher {
       throw new Error('Phoenix Engine initialization failed');
     }
     
-    console.log('✅ Phoenix Engine initialized successfully');
+    console.log('✅ Trading engine initialized successfully');
     return true;
   }
 
@@ -367,14 +365,14 @@ class PhoenixProductionLauncher {
    * Start Phoenix Engine
    */
   async startPhoenixEngine() {
-    console.log('\n🚀 Starting Phoenix Engine...');
-    
+    console.log('\n🚀 Starting trading engine...');
+
     const started = await this.phoenixEngine.start();
     if (!started) {
-      throw new Error('Phoenix Engine failed to start');
+      throw new Error('Trading engine failed to start');
     }
-    
-    console.log('✅ Phoenix Engine operational');
+
+    console.log('✅ Trading engine operational');
     this.displayOperationalStatus();
   }
 
@@ -414,9 +412,9 @@ class PhoenixProductionLauncher {
   displayOperationalStatus() {
     const metrics = this.phoenixEngine.getMetrics();
     
-    // CRUCIBLE MANDATE 4: Remove marketing slogans, report factual status
+    // System status report
     console.log('\n' + '='.repeat(60));
-    console.log('SENTRYCOIN v6.0 - STATUS REPORT');
+    console.log('SENTRYCOIN v6.0 - SYSTEM STATUS');
     console.log('='.repeat(60));
     console.log(`📊 Version: ${metrics.version}`);
     console.log(`🎯 Mandates Implemented: ${metrics.mandatesImplemented}/5`);
@@ -450,7 +448,7 @@ class PhoenixProductionLauncher {
       try {
         if (this.phoenixEngine) {
           await this.phoenixEngine.shutdown();
-          console.log('✅ Phoenix Engine shutdown complete');
+          console.log('✅ Trading engine shutdown complete');
         }
 
         if (this.server) {
@@ -507,7 +505,7 @@ class PhoenixProductionLauncher {
           console.log(`📊 PERFORMANCE: Whales: ${metrics.metrics.whaleIntentsDetected}, Derivatives: ${metrics.metrics.derivativesUpdates}, Tasks: ${metrics.metrics.tasksExecuted}`);
         }
       } else {
-        console.log('🚨 HEALTH CHECK: Phoenix Engine not running!');
+        console.log('🚨 HEALTH CHECK: Trading engine not running!');
       }
     }, 30000);
     
@@ -519,7 +517,7 @@ class PhoenixProductionLauncher {
    */
   async launch() {
     try {
-      console.log('🎯 COMMENCING PHOENIX ENGINE v6.0 LAUNCH SEQUENCE\n');
+      console.log('🎯 COMMENCING TRADING ENGINE v6.0 LAUNCH SEQUENCE\n');
 
       // Step 1: Validate environment
       this.validateEnvironment();
@@ -542,7 +540,7 @@ class PhoenixProductionLauncher {
       // Step 7: Start health monitoring
       this.startHealthMonitoring();
       
-      // CRUCIBLE MANDATE 4: Remove marketing slogans, report factual status
+      // System startup complete
       console.log('\n✅ SENTRYCOIN v6.0: STARTUP COMPLETE');
       console.log('📊 All components initialized successfully');
       console.log('⚙️ System operational and monitoring\n');
@@ -550,7 +548,7 @@ class PhoenixProductionLauncher {
       console.log('💓 System running - use Ctrl+C to shutdown gracefully');
       
     } catch (error) {
-      console.error('\n💥 PHOENIX ENGINE LAUNCH FAILED');
+      console.error('\n💥 TRADING ENGINE LAUNCH FAILED');
       console.error(`❌ Error: ${error.message}`);
       console.error(error.stack);
       
@@ -560,7 +558,7 @@ class PhoenixProductionLauncher {
   }
 }
 
-// Launch Phoenix Engine
+// Launch trading engine
 const launcher = new PhoenixProductionLauncher();
 launcher.launch().catch(error => {
   console.error('💥 CRITICAL LAUNCH FAILURE:', error.message);
