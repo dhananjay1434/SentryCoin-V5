@@ -8,7 +8,7 @@
     "start": "node phoenix-production.js",
     "dev": "node phoenix-production.js",
     "phoenix": "node phoenix-production.js",
-    "legacy": "node src/index.js",
+
     "test": "node test-phoenix-complete.js",
     "test:apis": "node test-apis-direct.js",
     "test:fortress": "node test-fortress-gauntlet.js",

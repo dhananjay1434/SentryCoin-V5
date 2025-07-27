@@ -218,6 +218,25 @@ export default class PhoenixEngine extends EventEmitter {
       // CRUCIBLE MANDATE 4: Track component activity
       this.updateComponentActivity('mempoolStreamer', true, false);
 
+      // RED TEAM MANDATE 3: Integrate whale transactions into Market Classifier
+      if (this.marketClassifier && intent.estimatedValue >= 10000) {
+        this.marketClassifier.processWhaleTransaction({
+          type: 'WHALE_TRANSACTION',
+          data: {
+            value: intent.estimatedValue,
+            address: intent.whaleAddress,
+            threatLevel: intent.threatLevel
+          },
+          timestamp: Date.now()
+        });
+
+        this.logger.info('whale_transaction_integrated', {
+          whaleAddress: intent.whaleAddress,
+          estimatedValue: intent.estimatedValue,
+          message: 'High-value whale transaction sent to Market Classifier for threshold adjustment'
+        });
+      }
+
       this.logger.warn('whale_intent_detected', {
         whaleAddress: intent.whaleAddress,
         estimatedValue: intent.estimatedValue,

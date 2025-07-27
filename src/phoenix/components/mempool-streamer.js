@@ -156,12 +156,9 @@ export default class MempoolStreamer extends EventEmitter {
         whaleWatchlistSize: this.whaleWatchlist.size
       });
 
-      // RED TEAM MANDATE 2: Start test mode if no real transactions within 30 seconds
-      setTimeout(() => {
-        if (this.stats.whaleTransactions === 0) {
-          this.startTestMode();
-        }
-      }, 30000);
+      // RED TEAM MANDATE 2: DISABLE TEST MODE - Process live transactions only
+      // Test mode disabled per Red Team audit - system must process real whale transactions
+      this.logger?.info('test_mode_disabled', 'RED TEAM MANDATE 2: Test mode disabled - processing live transactions only');
 
       return true;
 
@@ -334,8 +331,31 @@ export default class MempoolStreamer extends EventEmitter {
     if (whaleAddress) {
       this.stats.whaleTransactions++;
 
-      // CRUCIBLE MANDATE 1: Log ALL whale transactions with endToEndLatency
-      this.logWhaleTransaction(transaction, whaleAddress, true, 'alchemy', receiveTimestamp);
+      // RED TEAM MANDATE 2: Only log high-value transactions (>$10,000)
+      const valueEth = parseInt(transaction.value || '0', 16) / 1e18;
+      const valueUSD = valueEth * 3500; // Approximate ETH price
+
+      if (valueUSD >= 10000) {
+        // CRUCIBLE MANDATE 1: Log high-value whale transactions with endToEndLatency
+        this.logWhaleTransaction(transaction, whaleAddress, true, 'alchemy', receiveTimestamp);
+
+        // RED TEAM MANDATE 3: Emit whale intent for integration with Market Classifier
+        this.emit('WHALE_INTENT_DETECTED', {
+          whaleAddress,
+          estimatedValue: valueUSD,
+          threatLevel: valueUSD > 100000 ? 'HIGH' : 'MEDIUM',
+          detectionLatency: receiveTimestamp ? (Date.now() - receiveTimestamp) : 0,
+          transactionHash: transaction.hash
+        });
+      } else {
+        // Log low-value transactions at debug level only
+        this.logger?.debug('whale_transaction_low_value', {
+          whaleAddress,
+          valueUSD: Math.round(valueUSD),
+          threshold: 10000,
+          reason: 'Below $10k threshold - not logged as strategic intelligence'
+        });
+      }
 
       const intent = this.analyzeWhaleIntent(transaction, whaleAddress);
 
@@ -380,6 +400,16 @@ export default class MempoolStreamer extends EventEmitter {
     // CRUCIBLE MANDATE 1: Track latency statistics for 24h stress test validation
     if (endToEndLatency !== null) {
       this.updateLatencyStats(endToEndLatency);
+
+      // RED TEAM MANDATE 2: Enhanced validation for high-value transactions
+      if (valueUSD >= 10000) {
+        this.logger?.info('high_value_whale_transaction_processed', {
+          valueUSD,
+          endToEndLatency,
+          mandateCompliance: endToEndLatency <= 500 ? 'PASS' : 'FAIL',
+          strategicValue: 'HIGH'
+        });
+      }
     }
 
     // Also emit for real-time monitoring

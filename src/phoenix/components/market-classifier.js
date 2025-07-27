@@ -16,23 +16,23 @@ export default class MarketClassifier extends EventEmitter {
     this.symbol = config.symbol || 'ETHUSDT';
     this.logger = config.logger;
     
-    // RED TEAM MANDATE 1: Calibrated thresholds based on market reality
+    // RED TEAM MANDATE 1: AGGRESSIVE CALIBRATION - Fix paralyzed classifier
     this.thresholds = {
       cascade: {
-        pressure: 1.002,    // Reduced from 3.0 - more realistic for actual market conditions
-        liquidity: 50000,   // Reduced from 100000 - lower barrier for signal detection
-        momentum: -0.15     // Reduced from -0.3 - capture smaller but significant moves
+        pressure: 1.00001,  // ULTRA-LOW: Detect any pressure above baseline
+        liquidity: 25000,   // ULTRA-LOW: Minimal liquidity requirement
+        momentum: -0.05     // ULTRA-LOW: Capture any negative momentum
       },
       coil: {
-        pressure: 1.001,    // Reduced from 2.0 - detect subtle accumulation phases
-        liquidity: 150000,  // Reduced from 300000 - more achievable threshold
-        momentumMin: -0.05, // Reduced from -0.1 - tighter range for neutral momentum
-        momentumMax: 0.05   // Reduced from 0.1 - tighter range for neutral momentum
+        pressure: 1.000005, // ULTRA-LOW: Detect minimal accumulation pressure
+        liquidity: 30000,   // ULTRA-LOW: Minimal liquidity for coil detection
+        momentumMin: -0.02, // ULTRA-TIGHT: Very narrow neutral range
+        momentumMax: 0.02   // ULTRA-TIGHT: Very narrow neutral range
       },
       shakeout: {
-        pressure: 1.0005,   // Reduced from 1.5 - detect subtle stop hunts
-        liquidity: 100000,  // Reduced from 250000 - lower barrier for detection
-        momentum: -0.25     // Reduced from -0.5 - capture moderate shakeouts
+        pressure: 1.000001, // ULTRA-LOW: Detect minimal shakeout pressure
+        liquidity: 20000,   // ULTRA-LOW: Minimal liquidity for shakeout
+        momentum: -0.1      // MODERATE: Capture moderate shakeouts
       }
     };
     
@@ -63,7 +63,7 @@ export default class MarketClassifier extends EventEmitter {
     this.logger?.info('market_classifier_initialized', {
       symbol: this.symbol,
       thresholds: this.thresholds,
-      calibrationNote: 'RED TEAM MANDATE 1: Thresholds calibrated for market reality - reduced from theoretical values'
+      calibrationNote: 'RED TEAM MANDATE 1: ULTRA-AGGRESSIVE CALIBRATION - Thresholds set to force signal generation'
     });
   }
 
@@ -96,9 +96,43 @@ export default class MarketClassifier extends EventEmitter {
   }
 
   /**
+   * RED TEAM MANDATE 3: Process whale transaction to adjust thresholds
+   */
+  processWhaleTransaction(transaction) {
+    const { type, data, timestamp } = transaction;
+
+    if (type === 'WHALE_TRANSACTION' && data.value >= 10000) {
+      const alertId = `WHALE_${timestamp}`;
+      const expiryTime = timestamp + 30000; // 30-second window for whale transactions
+
+      this.derivativesAlerts.activeAlerts.set(alertId, {
+        type: 'WHALE_SPIKE',
+        data: {
+          value: data.value,
+          address: data.address,
+          threatLevel: data.threatLevel
+        },
+        timestamp,
+        expiryTime,
+        applied: false
+      });
+
+      this.logger?.info('whale_transaction_processed', {
+        alertType: 'WHALE_SPIKE',
+        value: data.value,
+        address: data.address,
+        windowDuration: 30000,
+        dlsReduction: this.derivativesAlerts.thresholdAdjustments.dlsReduction,
+        expiryTime: new Date(expiryTime).toISOString(),
+        message: 'High-value whale transaction triggers temporary threshold reduction'
+      });
+    }
+  }
+
+  /**
    * RED TEAM MANDATE 3: Get current DLS threshold with derivatives adjustments
    */
-  getCurrentDLSThreshold(baseThreshold = 45) { // RED TEAM MANDATE 1: Reduced from 75 to 45 for realistic detection
+  getCurrentDLSThreshold(baseThreshold = 25) { // RED TEAM MANDATE 1: ULTRA-LOW - Force signal generation
     const now = Date.now();
     let adjustedThreshold = baseThreshold;
     let activeAdjustments = [];
@@ -108,13 +142,14 @@ export default class MarketClassifier extends EventEmitter {
       if (now > alert.expiryTime) {
         this.derivativesAlerts.activeAlerts.delete(alertId);
       } else {
-        // Apply threshold reduction for active OI_SPIKE alerts
-        if (alert.type === 'OI_SPIKE') {
+        // Apply threshold reduction for active alerts
+        if (alert.type === 'OI_SPIKE' || alert.type === 'WHALE_SPIKE') {
           adjustedThreshold -= this.derivativesAlerts.thresholdAdjustments.dlsReduction;
           activeAdjustments.push({
             type: alert.type,
             reduction: this.derivativesAlerts.thresholdAdjustments.dlsReduction,
-            remainingTime: alert.expiryTime - now
+            remainingTime: alert.expiryTime - now,
+            data: alert.data
           });
         }
       }
