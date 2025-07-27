@@ -120,12 +120,15 @@ parentPort.on('message', async (message) => {
 });
 
 /**
- * Handle whale balance check task
+ * Handle whale balance check task (FORTRESS v6.1 - Enhanced Error Handling)
  */
 async function handleWhaleBalanceCheck(payload) {
   const { whaleAddress, apiKey } = payload;
-  
+
   try {
+    // Add delay to prevent rate limiting
+    await new Promise(resolve => setTimeout(resolve, 200));
+
     const response = await axios.get('https://api.etherscan.io/api', {
       params: {
         module: 'account',
@@ -136,25 +139,104 @@ async function handleWhaleBalanceCheck(payload) {
       },
       timeout: 15000
     });
-    
-    if (response.data.status !== '1') {
-      throw new Error(`Etherscan API Error: ${response.data.message}`);
+
+    // Enhanced error handling for Etherscan responses
+    if (!response.data) {
+      throw new Error('Etherscan API: No response data received');
     }
-    
+
+    if (response.data.status !== '1') {
+      const errorMsg = response.data.message || response.data.result || 'Unknown error';
+
+      // Handle specific error cases
+      if (errorMsg.includes('rate limit')) {
+        throw new Error(`Etherscan API: Rate limit exceeded - ${errorMsg}`);
+      } else if (errorMsg.includes('Invalid API Key')) {
+        throw new Error(`Etherscan API: Invalid API key - ${errorMsg}`);
+      } else if (errorMsg === 'NOTOK') {
+        throw new Error(`Etherscan API: Request failed - Status: ${response.data.status}, Message: ${errorMsg}`);
+      } else {
+        throw new Error(`Etherscan API Error: ${errorMsg}`);
+      }
+    }
+
     const balanceWei = response.data.result;
+    if (!balanceWei || balanceWei === '0x') {
+      throw new Error('Etherscan API: Invalid balance data received');
+    }
+
     const balanceEth = parseFloat(balanceWei) / 1e18;
     const balanceUSD = balanceEth * 3500; // Approximate ETH price
-    
+
     return {
       whaleAddress,
       balanceEth: Math.round(balanceEth * 100) / 100,
       balanceUSD: Math.round(balanceUSD),
       timestamp: Date.now(),
-      source: 'etherscan'
+      source: 'etherscan',
+      apiKeyUsed: apiKey.slice(0, 8) + '...' // Log partial key for debugging
     };
-    
+
   } catch (error) {
-    throw new Error(`Whale balance check failed: ${error.message}`);
+    // Enhanced error logging
+    console.error(`[ERROR] Etherscan whale balance check failed for ${whaleAddress}:`, {
+      error: error.message,
+      apiKey: apiKey ? apiKey.slice(0, 8) + '...' : 'missing',
+      timestamp: new Date().toISOString()
+    });
+
+    // FORTRESS v6.1: Fallback to Alchemy if Etherscan fails
+    try {
+      console.log(`[INFO] Attempting Alchemy fallback for ${whaleAddress}`);
+      return await handleWhaleBalanceCheckAlchemy(whaleAddress);
+    } catch (fallbackError) {
+      console.error(`[ERROR] Alchemy fallback also failed:`, fallbackError.message);
+      throw new Error(`All balance check methods failed - Etherscan: ${error.message}, Alchemy: ${fallbackError.message}`);
+    }
+  }
+}
+
+/**
+ * FORTRESS v6.1: Alchemy fallback for whale balance checks
+ */
+async function handleWhaleBalanceCheckAlchemy(whaleAddress) {
+  const alchemyApiKey = process.env.ALCHEMY_API_KEY;
+
+  if (!alchemyApiKey) {
+    throw new Error('Alchemy API key not configured');
+  }
+
+  try {
+    const response = await axios.post(`https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}`, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'eth_getBalance',
+      params: [whaleAddress, 'latest']
+    }, {
+      timeout: 15000,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.data.error) {
+      throw new Error(`Alchemy API Error: ${response.data.error.message}`);
+    }
+
+    const balanceWei = parseInt(response.data.result, 16);
+    const balanceEth = balanceWei / 1e18;
+    const balanceUSD = balanceEth * 3500; // Approximate ETH price
+
+    return {
+      whaleAddress,
+      balanceEth: Math.round(balanceEth * 100) / 100,
+      balanceUSD: Math.round(balanceUSD),
+      timestamp: Date.now(),
+      source: 'alchemy_fallback'
+    };
+
+  } catch (error) {
+    throw new Error(`Alchemy balance check failed: ${error.message}`);
   }
 }
 
